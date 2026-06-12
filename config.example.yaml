@@ -1,0 +1,44 @@
+# Robinhood Trading Agent Configuration
+# Copy to config.yaml and customize.
+
+# Must be an agentic_allowed=true account (see get_accounts via Robinhood MCP)
+account_number: "YOUR_AGENTIC_ACCOUNT_NUMBER"
+
+# Active strategies: dca, momentum, rebalance
+strategies:
+  - dca
+  - momentum
+
+risk:
+  max_order_dollars: 100        # Max dollars per single order
+  max_position_pct: 20          # Max % of portfolio in one symbol
+  max_daily_trades: 5           # Max trades per agent run/day
+  min_buying_power_reserve: 50  # Keep this much cash untouched
+  # allowed_symbols: [AAPL, NVDA]  # Uncomment to restrict buys
+  blocked_symbols: []
+
+dca:
+  amount_per_symbol: 25
+  targets:
+    AMD: 10
+    NVDA: 10
+
+momentum:
+  watchlist:
+    - AMD
+    - NVDA
+    - MU
+    - ARM
+
+rebalance:
+  targets:
+    AMD: 15
+    NVDA: 15
+    MU: 10
+    ARM: 10
+    MRVL: 10
+    DELL: 10
+    LRCX: 10
+    AMAT: 10
+    HPE: 10
+    ON: 10
