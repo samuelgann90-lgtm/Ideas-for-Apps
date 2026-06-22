@@ -1,69 +1,74 @@
 # Pokémon Card Scanner
 
-An iOS app that uses your iPhone camera to scan Pokémon TCG cards and show estimated market value from TCGPlayer.
+An iOS app that uses your iPhone camera to scan Pokémon TCG cards, identify them with on-device visual matching, show raw and graded market values, and track your collection.
+
+## Features
+
+- **Camera scanning** with Vision OCR (card name + collector number)
+- **Visual matching** using Apple Vision feature prints (on-device Core ML) to pick the right card when multiple share a name
+- **Raw prices** from TCGPlayer via the [Pokémon TCG API](https://pokemontcg.io/)
+- **Graded prices** (PSA, BGS, CGC) from recent eBay sold listings via [PkmnPrices](https://pkmnprices.com/)
+- **Price history chart** (30d / 90d / 1 year)
+- **Collection tracker** with portfolio total, quantities, and persistent storage (SwiftData)
 
 ## How it works
 
 ```mermaid
 flowchart LR
   A[Camera] --> B[Vision OCR]
-  B --> C[Card name + number]
-  C --> D[Pokémon TCG API]
-  D --> E[Price + card details]
+  B --> C[API search candidates]
+  C --> D[Vision feature-print match]
+  D --> E[Best card + prices]
+  E --> F[Collection]
 ```
 
-1. Point your camera at a Pokémon card and tap the scan button.
-2. Apple's **Vision** framework reads the card name and collector number (e.g. `025/165`) from the image.
-3. The app queries the free **[Pokémon TCG API](https://pokemontcg.io/)** to find the card and fetch TCGPlayer market prices.
-4. You see the card image, set info, and estimated value. If several cards match, you pick the right one.
-
-A **manual search** option (toolbar) lets you type a card name when OCR struggles — useful in dim light or with holo glare.
+1. Point your camera at a Pokémon card and tap scan.
+2. **Vision OCR** reads the card name and collector number.
+3. The **Pokémon TCG API** returns candidate cards.
+4. **Visual matching** compares your photo to each candidate's artwork and ranks by similarity %.
+5. You see raw TCGPlayer price, graded eBay averages, price history, and can **add to collection**.
 
 ## Requirements
 
 - Mac with **Xcode 15+**
-- iPhone running **iOS 17+** (camera required; Simulator has limited camera support)
-- Free API key from [dev.pokemontcg.io](https://dev.pokemontcg.io) (recommended for reliable rate limits)
+- iPhone running **iOS 17+** (camera required)
+- Free API key from [dev.pokemontcg.io](https://dev.pokemontcg.io) (card search + raw prices)
+- Free API key from [pkmnprices.com](https://pkmnprices.com/) (graded prices + history — 100 credits/day)
 
 ## Quick start
 
 1. Open `PokemonCardScanner/PokemonCardScanner.xcodeproj` in Xcode.
 2. Set your **Development Team** under Signing & Capabilities.
-3. Add your API key in `PokemonCardScanner/Services/APIConfiguration.swift`:
+3. Add API keys in `PokemonCardScanner/Services/APIConfiguration.swift`:
 
    ```swift
-   static let pokemonTCGAPIKey = "your-key-here"
+   static let pokemonTCGAPIKey = "your-pokemontcg-key"
+   static let pkmnPricesAPIKey = "pk_your-pkmnprices-key"
    ```
 
-4. Connect your iPhone, select it as the run destination, and press **Run** (⌘R).
-5. Allow camera access when prompted.
+4. Connect your iPhone and press **Run** (⌘R).
 
 ## Project structure
 
 | Path | Purpose |
 |------|---------|
-| `Views/ScannerView.swift` | Main camera UI and scan flow |
-| `Views/CameraManager.swift` | AVFoundation capture session |
-| `Services/CardRecognitionService.swift` | Vision text recognition + parsing |
-| `Services/PokemonTCGService.swift` | API client for card search and prices |
-| `Models/PokemonCard.swift` | Card and pricing models |
+| `Services/VisualMatchingService.swift` | On-device artwork similarity ranking |
+| `Services/PkmnPricesService.swift` | Graded prices + price history |
+| `Services/CardRecognitionService.swift` | Vision OCR |
+| `Views/CollectionView.swift` | Portfolio tracker tab |
+| `Views/GradedPricesSection.swift` | PSA/BGS/CGC price tiers |
+| `Views/PriceHistoryChartView.swift` | Swift Charts price trend |
+| `Models/CollectedCard.swift` | SwiftData collection model |
 
 ## Tips for better scans
 
-- Use good, even lighting and avoid heavy glare on holo cards.
-- Hold the phone steady and align the card inside the on-screen frame.
-- Make sure the **card name** and **collector number** (bottom corner) are visible.
+- Use even lighting; avoid holo glare.
+- Align the card inside the on-screen frame for best visual matching.
+- If multiple matches appear, pick the one with the highest **% match**.
 
 ## Pricing disclaimer
 
-Displayed prices are **TCGPlayer market estimates** from the Pokémon TCG API. Actual sale value depends on condition (NM/LP/MP), grading (PSA/BGS/CGC), language, and current demand. This app is for informational use, not financial advice.
-
-## Future improvements
-
-- On-device Core ML model for visual card matching (more accurate than OCR alone)
-- Barcode / QR scanning where present on products
-- Price history charts and collection tracking
-- Graded card price tiers (PSA 10, etc.) via a paid pricing API
+Raw prices are TCGPlayer market estimates. Graded prices are averages of recent eBay sold listings. Actual value depends on condition, grading subgrades, and market timing. Informational use only — not financial advice.
 
 ## License
 

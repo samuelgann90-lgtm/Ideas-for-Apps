@@ -18,6 +18,14 @@
 		A10000010000000000000009 /* CardResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000009 /* CardResultView.swift */; };
 		A1000001000000000000000A /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000A /* ScannerView.swift */; };
 		A1000001000000000000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000B /* Assets.xcassets */; };
+		A1000001000000000000000C /* RankedCardMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000D /* RankedCardMatch.swift */; };
+		A1000001000000000000000D /* CollectedCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000E /* CollectedCard.swift */; };
+		A1000001000000000000000E /* GradedPriceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000000F /* GradedPriceModels.swift */; };
+		A1000001000000000000000F /* VisualMatchingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000010 /* VisualMatchingService.swift */; };
+		A10000010000000000000010 /* PkmnPricesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* PkmnPricesService.swift */; };
+		A10000010000000000000011 /* CollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000012 /* CollectionView.swift */; };
+		A10000010000000000000012 /* GradedPricesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000013 /* GradedPricesSection.swift */; };
+		A10000010000000000000013 /* PriceHistoryChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* PriceHistoryChartView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +41,14 @@
 		A2000001000000000000000A /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
 		A2000001000000000000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000001000000000000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2000001000000000000000D /* RankedCardMatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankedCardMatch.swift; sourceTree = "<group>"; };
+		A2000001000000000000000E /* CollectedCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectedCard.swift; sourceTree = "<group>"; };
+		A2000001000000000000000F /* GradedPriceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradedPriceModels.swift; sourceTree = "<group>"; };
+		A20000010000000000000010 /* VisualMatchingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualMatchingService.swift; sourceTree = "<group>"; };
+		A20000010000000000000011 /* PkmnPricesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PkmnPricesService.swift; sourceTree = "<group>"; };
+		A20000010000000000000012 /* CollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionView.swift; sourceTree = "<group>"; };
+		A20000010000000000000013 /* GradedPricesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradedPricesSection.swift; sourceTree = "<group>"; };
+		A20000010000000000000014 /* PriceHistoryChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryChartView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* PokemonCardScanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PokemonCardScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -88,6 +104,9 @@
 			isa = PBXGroup;
 			children = (
 				A20000010000000000000003 /* PokemonCard.swift */,
+				A2000001000000000000000D /* RankedCardMatch.swift */,
+				A2000001000000000000000E /* CollectedCard.swift */,
+				A2000001000000000000000F /* GradedPriceModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -98,6 +117,8 @@
 				A20000010000000000000004 /* APIConfiguration.swift */,
 				A20000010000000000000005 /* PokemonTCGService.swift */,
 				A20000010000000000000006 /* CardRecognitionService.swift */,
+				A20000010000000000000010 /* VisualMatchingService.swift */,
+				A20000010000000000000011 /* PkmnPricesService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -109,6 +130,9 @@
 				A20000010000000000000008 /* CameraPreviewView.swift */,
 				A20000010000000000000009 /* CardResultView.swift */,
 				A2000001000000000000000A /* ScannerView.swift */,
+				A20000010000000000000012 /* CollectionView.swift */,
+				A20000010000000000000013 /* GradedPricesSection.swift */,
+				A20000010000000000000014 /* PriceHistoryChartView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -201,6 +225,14 @@
 				A10000010000000000000008 /* CameraPreviewView.swift in Sources */,
 				A10000010000000000000009 /* CardResultView.swift in Sources */,
 				A1000001000000000000000A /* ScannerView.swift in Sources */,
+				A1000001000000000000000C /* RankedCardMatch.swift in Sources */,
+				A1000001000000000000000D /* CollectedCard.swift in Sources */,
+				A1000001000000000000000E /* GradedPriceModels.swift in Sources */,
+				A1000001000000000000000F /* VisualMatchingService.swift in Sources */,
+				A10000010000000000000010 /* PkmnPricesService.swift in Sources */,
+				A10000010000000000000011 /* CollectionView.swift in Sources */,
+				A10000010000000000000012 /* GradedPricesSection.swift in Sources */,
+				A10000010000000000000013 /* PriceHistoryChartView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

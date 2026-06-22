@@ -1,8 +1,14 @@
 import SwiftUI
+import SwiftData
 
 struct CardResultView: View {
   let card: PokemonCard
+  let matchSimilarity: Float?
   let onDismiss: () -> Void
+
+  @Environment(\.modelContext) private var modelContext
+  @State private var addedToCollection = false
+  @State private var collectionQuantity = 1
 
   var body: some View {
     NavigationStack {
@@ -42,16 +48,34 @@ struct CardResultView: View {
                 .padding(.vertical, 4)
                 .background(.ultraThinMaterial, in: Capsule())
             }
+
+            if let matchSimilarity {
+              Label(
+                String(format: "%.0f%% visual match", matchSimilarity),
+                systemImage: "viewfinder.circle.fill"
+              )
+              .font(.caption)
+              .foregroundStyle(.blue)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 4)
+              .background(.blue.opacity(0.1), in: Capsule())
+            }
           }
 
           priceSection
+          addToCollectionSection
+
+          Divider().padding(.horizontal)
+
+          GradedPricesSection(card: card)
+          PriceHistoryChartView(card: card)
 
           if let urlString = card.tcgplayer?.url, let url = URL(string: urlString) {
             Link("View on TCGPlayer", destination: url)
               .font(.subheadline)
           }
 
-          Text("Prices are market estimates from TCGPlayer and change frequently. Condition, grading, and language affect real sale value.")
+          Text("Raw prices from TCGPlayer; graded prices from recent eBay sales. Values change frequently and depend on condition and grading.")
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -84,7 +108,7 @@ struct CardResultView: View {
   private var priceSection: some View {
     if let market = card.bestMarketPrice {
       VStack(spacing: 12) {
-        Text("Estimated Market Value")
+        Text("Raw (Ungraded) Market Value")
           .font(.subheadline)
           .foregroundStyle(.secondary)
 
@@ -112,11 +136,41 @@ struct CardResultView: View {
         }
       }
     } else {
-      Label("No pricing data available for this card", systemImage: "exclamationmark.triangle")
+      Label("No raw pricing data available", systemImage: "exclamationmark.triangle")
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .padding()
     }
+  }
+
+  private var addToCollectionSection: some View {
+    VStack(spacing: 12) {
+      if addedToCollection {
+        Label("Added to your collection!", systemImage: "checkmark.circle.fill")
+          .font(.subheadline.weight(.medium))
+          .foregroundStyle(.green)
+      } else {
+        HStack {
+          Stepper("Qty: \(collectionQuantity)", value: $collectionQuantity, in: 1...20)
+            .font(.subheadline)
+        }
+        .padding(.horizontal)
+
+        Button(action: addToCollection) {
+          Label("Add to Collection", systemImage: "plus.circle.fill")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+        }
+        .buttonStyle(.borderedProminent)
+        .padding(.horizontal)
+      }
+    }
+  }
+
+  private func addToCollection() {
+    modelContext.insert(CollectedCard(from: card, quantity: collectionQuantity))
+    addedToCollection = true
   }
 }
 
@@ -138,6 +192,8 @@ struct CardResultView: View {
         prices: ["holofoil": .init(low: 250, mid: 350, high: 500, market: 320, directLow: nil)]
       )
     ),
+    matchSimilarity: 92,
     onDismiss: {}
   )
+  .modelContainer(for: CollectedCard.self, inMemory: true)
 }
