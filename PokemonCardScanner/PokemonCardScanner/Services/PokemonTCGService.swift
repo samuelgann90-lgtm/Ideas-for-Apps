@@ -131,6 +131,30 @@ actor PokemonTCGService {
     return decoded.data
   }
 
+  /// Card name suggestions for search autocomplete (from the Pokémon TCG database).
+  func suggestNames(matching prefix: String) async -> [String] {
+    let trimmed = sanitizeQuery(prefix)
+    guard trimmed.count >= 2 else { return [] }
+
+    let wildcard = trimmed.count >= 3 ? String(trimmed.prefix(3)) : trimmed
+    guard let cards = try? await fetchCards(query: "name:\(wildcard)*") else { return [] }
+
+    let needle = trimmed.lowercased()
+    var seen = Set<String>()
+    var names: [String] = []
+
+    for card in cards {
+      let lower = card.name.lowercased()
+      guard lower.contains(needle) || lower.hasPrefix(needle) else { continue }
+      guard !seen.contains(lower) else { continue }
+      seen.insert(lower)
+      names.append(card.name)
+      if names.count >= 10 { break }
+    }
+
+    return names.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+  }
+
   private func sanitizeQuery(_ text: String) -> String {
     text
       .replacingOccurrences(of: "\"", with: "")

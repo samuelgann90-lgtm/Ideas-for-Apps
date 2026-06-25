@@ -7,7 +7,6 @@ struct ScannerView: View {
   @State private var statusMessage = "Point your camera at a Pokémon card"
   @State private var sheetContent: ScannerSheetContent?
   @State private var showManualSearch = false
-  @State private var manualSearchQuery = ""
   @State private var lastScanDate: Date?
 
   private let scanCooldown: TimeInterval = 2.5
@@ -21,7 +20,7 @@ struct ScannerView: View {
           cameraContent
         }
       }
-      .navigationTitle("Card Scanner")
+      .navigationTitle("Scan")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
@@ -40,14 +39,10 @@ struct ScannerView: View {
           cardPickerSheet(matches: matches)
         }
       }
-      .alert("Search by Name", isPresented: $showManualSearch) {
-        TextField("e.g. Charizard ex", text: $manualSearchQuery)
-        Button("Search") {
-          Task { await searchManually() }
+      .sheet(isPresented: $showManualSearch) {
+        ManualSearchView(isPresented: $showManualSearch) { query in
+          Task { await searchManually(query: query) }
         }
-        Button("Cancel", role: .cancel) {}
-      } message: {
-        Text("Enter a card name if the camera scan doesn't find a match.")
       }
     }
   }
@@ -204,16 +199,16 @@ struct ScannerView: View {
     }
   }
 
-  private func searchManually() async {
-    let query = manualSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !query.isEmpty else { return }
+  private func searchManually(query: String) async {
+    let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
 
     isScanning = true
-    statusMessage = "Searching for \"\(query)\"…"
+    statusMessage = "Searching for \"\(trimmed)\"…"
     defer { isScanning = false }
 
     do {
-      let cards = try await PokemonTCGService.shared.searchCards(name: query)
+      let cards = try await PokemonTCGService.shared.searchCards(name: trimmed)
       let ranked = cards.map { RankedCardMatch(card: $0, similarity: 0, visualDistance: .infinity) }
       await presentResults(ranked)
     } catch {

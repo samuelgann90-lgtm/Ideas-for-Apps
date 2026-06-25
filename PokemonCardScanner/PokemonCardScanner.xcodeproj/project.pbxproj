@@ -26,6 +26,7 @@
 		A10000010000000000000011 /* CollectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000012 /* CollectionView.swift */; };
 		A10000010000000000000012 /* GradedPricesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000013 /* GradedPricesSection.swift */; };
 		A10000010000000000000013 /* PriceHistoryChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* PriceHistoryChartView.swift */; };
+		A10000010000000000000014 /* ManualSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* ManualSearchView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +50,7 @@
 		A20000010000000000000012 /* CollectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollectionView.swift; sourceTree = "<group>"; };
 		A20000010000000000000013 /* GradedPricesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradedPricesSection.swift; sourceTree = "<group>"; };
 		A20000010000000000000014 /* PriceHistoryChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PriceHistoryChartView.swift; sourceTree = "<group>"; };
+		A20000010000000000000015 /* ManualSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualSearchView.swift; sourceTree = "<group>"; };
 		A30000010000000000000001 /* PokemonCardScanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PokemonCardScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -133,6 +135,7 @@
 				A20000010000000000000012 /* CollectionView.swift */,
 				A20000010000000000000013 /* GradedPricesSection.swift */,
 				A20000010000000000000014 /* PriceHistoryChartView.swift */,
+				A20000010000000000000015 /* ManualSearchView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -233,6 +236,7 @@
 				A10000010000000000000011 /* CollectionView.swift in Sources */,
 				A10000010000000000000012 /* GradedPricesSection.swift in Sources */,
 				A10000010000000000000013 /* PriceHistoryChartView.swift in Sources */,
+				A10000010000000000000014 /* ManualSearchView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,25 +1,62 @@
 import SwiftUI
 import SwiftData
 
+enum CollectionSortOption: String, CaseIterable, Identifiable {
+  case dateAddedNewest = "Date Added (Newest)"
+  case dateAddedOldest = "Date Added (Oldest)"
+  case priceHighToLow = "Price: High to Low"
+  case priceLowToHigh = "Price: Low to High"
+  case nameAZ = "Name: A–Z"
+  case nameZA = "Name: Z–A"
+  case setName = "Set Name"
+
+  var id: String { rawValue }
+}
+
 struct CollectionView: View {
   @Environment(\.modelContext) private var modelContext
-  @Query(sort: \CollectedCard.addedAt, order: .reverse) private var cards: [CollectedCard]
+  @Query(sort: \CollectedCard.addedAt, order: .reverse) private var allCards: [CollectedCard]
 
+  @State private var sortOption: CollectionSortOption = .dateAddedNewest
   @State private var selectedCard: PokemonCard?
   @State private var showCardDetail = false
 
+  private var cards: [CollectedCard] {
+    switch sortOption {
+    case .dateAddedNewest:
+      return allCards.sorted { $0.addedAt > $1.addedAt }
+    case .dateAddedOldest:
+      return allCards.sorted { $0.addedAt < $1.addedAt }
+    case .priceHighToLow:
+      return allCards.sorted { $0.lineValue > $1.lineValue }
+    case .priceLowToHigh:
+      return allCards.sorted { $0.lineValue < $1.lineValue }
+    case .nameAZ:
+      return allCards.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    case .nameZA:
+      return allCards.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+    case .setName:
+      return allCards.sorted {
+        if $0.setName == $1.setName {
+          return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        return $0.setName.localizedCaseInsensitiveCompare($1.setName) == .orderedAscending
+      }
+    }
+  }
+
   private var totalValue: Double {
-    cards.reduce(0) { $0 + $1.lineValue }
+    allCards.reduce(0) { $0 + $1.lineValue }
   }
 
   private var totalCards: Int {
-    cards.reduce(0) { $0 + $1.quantity }
+    allCards.reduce(0) { $0 + $1.quantity }
   }
 
   var body: some View {
     NavigationStack {
       Group {
-        if cards.isEmpty {
+        if allCards.isEmpty {
           ContentUnavailableView {
             Label("No Cards Yet", systemImage: "square.stack.3d.up.slash")
           } description: {
@@ -31,11 +68,27 @@ struct CollectionView: View {
               portfolioHeader
             }
 
-            Section("Your Cards") {
+            Section {
               ForEach(cards) { entry in
                 collectionRow(entry)
               }
               .onDelete(perform: deleteCards)
+            } header: {
+              HStack {
+                Text("Your Cards")
+                Spacer()
+                Menu {
+                  Picker("Sort by", selection: $sortOption) {
+                    ForEach(CollectionSortOption.allCases) { option in
+                      Text(option.rawValue).tag(option)
+                    }
+                  }
+                } label: {
+                  Label(sortOption.rawValue, systemImage: "arrow.up.arrow.down")
+                    .font(.caption)
+                    .labelStyle(.titleAndIcon)
+                }
+              }
             }
           }
         }
@@ -63,7 +116,7 @@ struct CollectionView: View {
 
       HStack(spacing: 24) {
         statItem(value: "\(totalCards)", label: "Cards")
-        statItem(value: "\(cards.count)", label: "Unique")
+        statItem(value: "\(allCards.count)", label: "Unique")
       }
     }
     .frame(maxWidth: .infinity)
@@ -154,8 +207,9 @@ struct CollectionView: View {
   }
 
   private func deleteCards(at offsets: IndexSet) {
+    let sorted = cards
     for index in offsets {
-      modelContext.delete(cards[index])
+      modelContext.delete(sorted[index])
     }
   }
 }
