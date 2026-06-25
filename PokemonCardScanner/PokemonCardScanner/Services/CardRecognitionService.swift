@@ -18,7 +18,9 @@ enum CardRecognitionService {
     async let fullResults = recognizeText(in: enhanceForOCR(cardCrop))
     async let nameResults = recognizeText(in: enhanceForOCR(nameBand))
 
-    let lines = await fullResults + await nameResults
+    let fullLines = await fullResults
+    let nameLines = await nameResults
+    let lines = fullLines + nameLines
     let parsed = parseCardText(from: lines)
     return parsed
   }
