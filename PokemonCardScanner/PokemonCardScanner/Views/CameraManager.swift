@@ -9,8 +9,10 @@ final class CameraManager: NSObject, ObservableObject {
 
   let session = AVCaptureSession()
   private let videoOutput = AVCaptureVideoDataOutput()
+  private let photoOutput = AVCapturePhotoOutput()
   private let sessionQueue = DispatchQueue(label: "camera.session.queue")
   private var isConfigured = false
+  private var photoContinuation: CheckedContinuation<CGImage?, Never>?
 
   func requestPermissionAndStart() {
     switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -40,6 +42,27 @@ final class CameraManager: NSObject, ObservableObject {
     }
   }
 
+  func capturePhoto() async -> CGImage? {
+    await withCheckedContinuation { continuation in
+      sessionQueue.async { [weak self] in
+        guard let self else {
+          continuation.resume(returning: nil)
+          return
+        }
+
+        Task { @MainActor in
+          self.photoContinuation = continuation
+        }
+
+        let settings = AVCapturePhotoSettings()
+        if self.photoOutput.supportedFlashModes.contains(.auto) {
+          settings.flashMode = .auto
+        }
+        self.photoOutput.capturePhoto(with: settings, delegate: self)
+      }
+    }
+  }
+
   private func startSession() {
     sessionQueue.async { [weak self] in
       guard let self else { return }
@@ -57,7 +80,7 @@ final class CameraManager: NSObject, ObservableObject {
 
   private func configureSession() {
     session.beginConfiguration()
-    session.sessionPreset = .high
+    session.sessionPreset = .photo
 
     guard
       let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -70,6 +93,15 @@ final class CameraManager: NSObject, ObservableObject {
 
     session.addInput(input)
 
+    try? device.lockForConfiguration()
+    if device.isFocusModeSupported(.continuousAutoFocus) {
+      device.focusMode = .continuousAutoFocus
+    }
+    if device.isExposureModeSupported(.continuousAutoExposure) {
+      device.exposureMode = .continuousAutoExposure
+    }
+    device.unlockForConfiguration()
+
     videoOutput.videoSettings = [
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
     ]
@@ -79,6 +111,13 @@ final class CameraManager: NSObject, ObservableObject {
     if session.canAddOutput(videoOutput) {
       session.addOutput(videoOutput)
       if let connection = videoOutput.connection(with: .video) {
+        connection.videoRotationAngle = 90
+      }
+    }
+
+    if session.canAddOutput(photoOutput) {
+      session.addOutput(photoOutput)
+      if let connection = photoOutput.connection(with: .video) {
         connection.videoRotationAngle = 90
       }
     }
@@ -106,6 +145,32 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
     Task { @MainActor in
       self.latestFrame = cgImage
+    }
+  }
+}
+
+extension CameraManager: AVCapturePhotoCaptureDelegate {
+  nonisolated func photoOutput(
+    _ output: AVCapturePhotoOutput,
+    didFinishProcessingPhoto photo: AVCapturePhoto,
+    error: Error?
+  ) {
+    let cgImage: CGImage? = {
+      if let data = photo.fileDataRepresentation(),
+        let uiImage = UIImage(data: data),
+        let image = uiImage.cgImage
+      {
+        return image
+      }
+      return nil
+    }()
+
+    Task { @MainActor in
+      if let cgImage {
+        self.latestFrame = cgImage
+      }
+      self.photoContinuation?.resume(returning: cgImage)
+      self.photoContinuation = nil
     }
   }
 }

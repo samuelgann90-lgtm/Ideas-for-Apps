@@ -79,7 +79,7 @@ struct ScannerView: View {
           .strokeBorder(.white.opacity(0.9), lineWidth: 2)
           .frame(width: 260, height: 360)
           .overlay(alignment: .topLeading) {
-            Text("Align card here")
+            Text("Fill frame with card")
               .font(.caption2)
               .foregroundStyle(.white.opacity(0.8))
               .padding(8)
@@ -168,34 +168,38 @@ struct ScannerView: View {
       return
     }
 
-    guard let frame = camera.captureCurrentFrame() else {
-      statusMessage = "Camera not ready. Try again."
-      return
-    }
-
     isScanning = true
-    statusMessage = "Reading card…"
+    statusMessage = "Hold still — capturing…"
     lastScanDate = Date()
 
     Task {
       defer { isScanning = false }
 
-      guard let recognized = await CardRecognitionService.recognizeCard(from: frame) else {
-        statusMessage = "Couldn't read text. Improve lighting and center the card."
+      guard let frame = await camera.capturePhoto() else {
+        statusMessage = "Camera not ready. Try again."
         return
       }
 
-      statusMessage = "Found \"\(recognized.candidateName)\" — matching artwork…"
+      statusMessage = "Reading card text…"
+
+      let candidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
+
+      guard !candidates.isEmpty else {
+        statusMessage = "Couldn't read the card name. Center the card, add light, and try again — or use Search."
+        return
+      }
+
+      let best = candidates[0]
+      statusMessage = "Found \"\(best.candidateName)\" — looking up card…"
 
       do {
-        let cards = try await PokemonTCGService.shared.searchCards(
-          name: recognized.candidateName,
-          collectorNumber: recognized.collectorNumber
-        )
+        let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: candidates)
+        statusMessage = "Matching artwork…"
         let ranked = await VisualMatchingService.rank(candidates: cards, scannedImage: frame)
-        await presentResults(ranked)
+        await presentResults(ranked, ocrName: best.candidateName)
       } catch {
-        statusMessage = error.localizedDescription
+        let triedNames = candidates.prefix(3).map(\.candidateName).joined(separator: ", ")
+        statusMessage = "No match for: \(triedNames). Try Search or rescan with better light."
       }
     }
   }
@@ -218,7 +222,7 @@ struct ScannerView: View {
   }
 
   @MainActor
-  private func presentResults(_ matches: [RankedCardMatch]) {
+  private func presentResults(_ matches: [RankedCardMatch], ocrName: String? = nil) {
     guard let top = matches.first else {
       statusMessage = "No matches found."
       return
@@ -229,7 +233,11 @@ struct ScannerView: View {
       statusMessage = "Tap the shutter to scan another card"
     } else {
       sheetContent = .picker(matches)
-      statusMessage = "Multiple matches — pick the best visual match"
+      if let ocrName {
+        statusMessage = "Several \"\(ocrName)\" cards — pick the best match"
+      } else {
+        statusMessage = "Multiple matches — pick the best visual match"
+      }
     }
   }
 }

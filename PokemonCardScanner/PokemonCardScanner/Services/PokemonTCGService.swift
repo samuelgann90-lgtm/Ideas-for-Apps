@@ -31,20 +31,71 @@ actor PokemonTCGService {
   }
 
   func searchCards(name: String, collectorNumber: String? = nil) async throws -> [PokemonCard] {
-    var queryParts = ["name:\"\(sanitizeQuery(name))\""]
+    try await searchWithFallbacks(
+      candidates: [
+        RecognizedCardText(
+          candidateName: name,
+          collectorNumber: collectorNumber,
+          confidence: 1
+        )
+      ]
+    )
+  }
 
-    if let collectorNumber, let number = extractCardNumber(from: collectorNumber) {
-      queryParts.append("number:\(number)")
+  /// Tries exact, wildcard, and partial name searches until something matches.
+  func searchWithFallbacks(candidates: [RecognizedCardText]) async throws -> [PokemonCard] {
+    var tried = Set<String>()
+
+    for candidate in candidates {
+      let name = sanitizeQuery(candidate.candidateName)
+      guard !name.isEmpty else { continue }
+
+      let strategies = searchQueries(for: name, collectorNumber: candidate.collectorNumber)
+
+      for query in strategies {
+        guard !tried.contains(query) else { continue }
+        tried.insert(query)
+
+        if let cards = try? await fetchCards(query: query), !cards.isEmpty {
+          return cards
+        }
+      }
     }
 
-    let query = queryParts.joined(separator: " ")
+    throw PokemonTCGServiceError.noResults
+  }
+
+  private func searchQueries(for name: String, collectorNumber: String?) -> [String] {
+    let words = name.split(separator: " ").map(String.init)
+    let firstWord = words.first ?? name
+    let wildcard = firstWord.count >= 3 ? String(firstWord.prefix(3)) : firstWord
+
+    var queries: [String] = []
+
+    if let collectorNumber, let number = extractCardNumber(from: collectorNumber) {
+      queries.append("name:\"\(name)\" number:\(number)")
+      queries.append("name:\(wildcard)* number:\(number)")
+      queries.append("number:\(number)")
+    }
+
+    queries.append("name:\"\(name)\"")
+    queries.append("name:\(wildcard)*")
+
+    if words.count > 1 {
+      queries.append("name:\"\(words.prefix(2).joined(separator: " "))\"")
+    }
+
+    return queries
+  }
+
+  private func fetchCards(query: String) async throws -> [PokemonCard] {
     guard var components = URLComponents(string: "\(baseURL)/cards") else {
       throw PokemonTCGServiceError.invalidURL
     }
 
     components.queryItems = [
       URLQueryItem(name: "q", value: query),
-      URLQueryItem(name: "pageSize", value: "10"),
+      URLQueryItem(name: "pageSize", value: "15"),
       URLQueryItem(name: "orderBy", value: "-set.releaseDate"),
     ]
 
@@ -67,9 +118,7 @@ actor PokemonTCGService {
     }
 
     guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-      throw PokemonTCGServiceError.networkError(
-        URLError(.badServerResponse)
-      )
+      throw PokemonTCGServiceError.networkError(URLError(.badServerResponse))
     }
 
     let decoded: CardsSearchResponse
@@ -77,10 +126,6 @@ actor PokemonTCGService {
       decoded = try JSONDecoder().decode(CardsSearchResponse.self, from: data)
     } catch {
       throw PokemonTCGServiceError.decodingError(error)
-    }
-
-    guard !decoded.data.isEmpty else {
-      throw PokemonTCGServiceError.noResults
     }
 
     return decoded.data
