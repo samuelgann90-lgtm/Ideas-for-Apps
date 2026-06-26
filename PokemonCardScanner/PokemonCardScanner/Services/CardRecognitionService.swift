@@ -32,31 +32,42 @@ enum CardRecognitionService {
   // MARK: - OCR
 
   private static func recognizeText(in image: CGImage) async -> [(text: String, confidence: Float)] {
-    await withCheckedContinuation { continuation in
+    guard image.width > 10, image.height > 10 else { return [] }
+
+    return await withCheckedContinuation { continuation in
+      final class ResumeGuard {
+        var resumed = false
+        func resumeOnce(returning lines: [(text: String, confidence: Float)]) {
+          guard !resumed else { return }
+          resumed = true
+          continuation.resume(returning: lines)
+        }
+      }
+      let guardBox = ResumeGuard()
+
       let request = VNRecognizeTextRequest { request, _ in
         let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
         var lines: [(text: String, confidence: Float)] = []
-
         for observation in observations {
           for candidate in observation.topCandidates(5) {
             lines.append((candidate.string, candidate.confidence))
           }
         }
-
-        continuation.resume(returning: lines)
+        guardBox.resumeOnce(returning: lines)
       }
 
       request.recognitionLevel = .accurate
-      // Pokémon names are not dictionary words — autocorrect turns garble into "Doo Da" etc.
       request.usesLanguageCorrection = false
       request.recognitionLanguages = ["en-US"]
       request.minimumTextHeight = 0.02
 
-      let handler = VNImageRequestHandler(cgImage: image, options: [:])
-      do {
-        try handler.perform([request])
-      } catch {
-        continuation.resume(returning: [])
+      DispatchQueue.global(qos: .userInitiated).async {
+        let handler = VNImageRequestHandler(cgImage: image, options: [:])
+        do {
+          try handler.perform([request])
+        } catch {
+          guardBox.resumeOnce(returning: [])
+        }
       }
     }
   }
@@ -182,22 +193,17 @@ enum CardRecognitionService {
     let cleaned = cleanCardName(name)
     guard cleaned.count >= 3 else { return 0 }
 
-    // Direct search hit = strong match.
-    if let cards = try? await PokemonTCGService.shared.searchCards(name: cleaned), !cards.isEmpty {
-      let exact = cards.contains { $0.name.localizedCaseInsensitiveCompare(cleaned) == .orderedSame }
-      return exact ? 100 : 70
-    }
-
-    // Prefix suggestions from the API.
     let prefix = String(cleaned.prefix(4))
     let suggestions = await PokemonTCGService.shared.suggestNames(matching: prefix)
+    guard !suggestions.isEmpty else { return 0 }
+
     for suggestion in suggestions {
-      if suggestion.localizedCaseInsensitiveCompare(cleaned) == .orderedSame { return 90 }
-      if suggestion.localizedCaseInsensitiveContains(cleaned) { return 75 }
-      if cleaned.localizedCaseInsensitiveContains(suggestion) { return 60 }
+      if suggestion.localizedCaseInsensitiveCompare(cleaned) == .orderedSame { return 100 }
+      if suggestion.localizedCaseInsensitiveContains(cleaned) { return 85 }
+      if cleaned.localizedCaseInsensitiveContains(suggestion) { return 70 }
     }
 
-    return 0
+    return 40
   }
 
   // MARK: - Filters

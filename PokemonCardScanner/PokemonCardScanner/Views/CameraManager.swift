@@ -12,6 +12,7 @@ final class CameraManager: NSObject, ObservableObject {
   private let photoOutput = AVCapturePhotoOutput()
   private let sessionQueue = DispatchQueue(label: "camera.session.queue")
   private var isConfigured = false
+  private var isCapturingPhoto = false
   private var photoContinuation: CheckedContinuation<CGImage?, Never>?
 
   func requestPermissionAndStart() {
@@ -43,13 +44,25 @@ final class CameraManager: NSObject, ObservableObject {
   }
 
   func capturePhoto() async -> CGImage? {
-    await withCheckedContinuation { continuation in
+    if isCapturingPhoto {
+      return latestFrame
+    }
+
+    return await withCheckedContinuation { continuation in
       sessionQueue.async { [weak self] in
         guard let self else {
           continuation.resume(returning: nil)
           return
         }
 
+        if self.isCapturingPhoto {
+          Task { @MainActor in
+            continuation.resume(returning: self.latestFrame)
+          }
+          return
+        }
+
+        self.isCapturingPhoto = true
         Task { @MainActor in
           self.photoContinuation = continuation
         }
@@ -61,6 +74,16 @@ final class CameraManager: NSObject, ObservableObject {
         self.photoOutput.capturePhoto(with: settings, delegate: self)
       }
     }
+  }
+
+  private func finishPhotoCapture(with image: CGImage?) {
+    isCapturingPhoto = false
+    if let image {
+      latestFrame = image
+    }
+    let continuation = photoContinuation
+    photoContinuation = nil
+    continuation?.resume(returning: image)
   }
 
   private func startSession() {
@@ -156,21 +179,16 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
     error: Error?
   ) {
     let cgImage: CGImage? = {
-      if let data = photo.fileDataRepresentation(),
+      guard error == nil else { return nil }
+      guard let data = photo.fileDataRepresentation(),
         let uiImage = UIImage(data: data),
         let image = uiImage.cgImage
-      {
-        return image
-      }
-      return nil
+      else { return nil }
+      return image
     }()
 
     Task { @MainActor in
-      if let cgImage {
-        self.latestFrame = cgImage
-      }
-      self.photoContinuation?.resume(returning: cgImage)
-      self.photoContinuation = nil
+      self.finishPhotoCapture(with: cgImage)
     }
   }
 }
