@@ -9,6 +9,24 @@ struct PokemonCard: Identifiable, Decodable, Hashable {
   let images: CardImages
   let tcgplayer: TCGPlayerInfo?
 
+  init(
+    id: String,
+    name: String,
+    number: String,
+    rarity: String?,
+    set: CardSet,
+    images: CardImages,
+    tcgplayer: TCGPlayerInfo?
+  ) {
+    self.id = id
+    self.name = name
+    self.number = number
+    self.rarity = rarity
+    self.set = set
+    self.images = images
+    self.tcgplayer = tcgplayer
+  }
+
   struct CardSet: Decodable, Hashable {
     let id: String
     let name: String

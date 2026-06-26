@@ -204,6 +204,7 @@ struct ScannerView: View {
     }
   }
 
+  @MainActor
   private func searchManually(query: String) async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return }
@@ -215,7 +216,7 @@ struct ScannerView: View {
     do {
       let cards = try await PokemonTCGService.shared.searchCards(name: trimmed)
       let ranked = cards.map { RankedCardMatch(card: $0, similarity: 0, visualDistance: .infinity) }
-      await presentMatches(ranked, ocrName: trimmed)
+      presentMatches(ranked, ocrName: trimmed)
     } catch {
       statusMessage = error.localizedDescription
     }

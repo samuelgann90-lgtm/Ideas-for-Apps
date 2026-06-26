@@ -69,7 +69,7 @@ struct CollectionView: View {
             }
 
             Section {
-              ForEach(cards) { entry in
+              ForEach(cards, id: \.persistentId) { entry in
                 collectionRow(entry)
               }
               .onDelete(perform: deleteCards)

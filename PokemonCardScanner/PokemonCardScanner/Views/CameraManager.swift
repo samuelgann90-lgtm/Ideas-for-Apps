@@ -42,12 +42,20 @@ final class CameraManager: NSObject, ObservableObject {
   /// Uses the latest camera preview frame (stable and avoids photo-capture crashes).
   func capturePhoto() async -> CGImage? {
     for _ in 0..<30 {
-      if let frame = await MainActor.run(body: { latestFrame }) {
+      if let frame = await readLatestFrame() {
         return frame
       }
       try? await Task.sleep(nanoseconds: 50_000_000)
     }
-    return await MainActor.run { latestFrame }
+    return await readLatestFrame()
+  }
+
+  private func readLatestFrame() async -> CGImage? {
+    await withCheckedContinuation { continuation in
+      DispatchQueue.main.async { [weak self] in
+        continuation.resume(returning: self?.latestFrame)
+      }
+    }
   }
 
   private func startSession() {
@@ -98,12 +106,22 @@ final class CameraManager: NSObject, ObservableObject {
     if session.canAddOutput(videoOutput) {
       session.addOutput(videoOutput)
       if let connection = videoOutput.connection(with: .video) {
-        connection.videoRotationAngle = 90
+        setPortraitOrientation(on: connection)
       }
     }
 
     session.commitConfiguration()
     isConfigured = true
+  }
+
+  private func setPortraitOrientation(on connection: AVCaptureConnection) {
+    if #available(iOS 17.0, *) {
+      if connection.isVideoRotationAngleSupported(90) {
+        connection.videoRotationAngle = 90
+      }
+    } else if connection.isVideoOrientationSupported {
+      connection.videoOrientation = .portrait
+    }
   }
 }
 
@@ -119,8 +137,8 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     let context = CIContext()
     guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
 
-    DispatchQueue.main.async {
-      self.latestFrame = cgImage
+    DispatchQueue.main.async { [weak self] in
+      self?.latestFrame = cgImage
     }
   }
 }
