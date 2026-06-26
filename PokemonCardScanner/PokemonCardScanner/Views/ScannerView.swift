@@ -196,12 +196,12 @@ struct ScannerView: View {
       let ocrCandidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
 
       guard !ocrCandidates.isEmpty else {
-        statusMessage = "Couldn't read the card name. Add light, fill the frame, or use Search."
+        statusMessage = "Couldn't read the card name. Fill the frame with the card name at the top, or use Search."
         return
       }
 
       let best = ocrCandidates[0]
-      statusMessage = "Found \"\(best.candidateName)\" — searching…"
+      statusMessage = "Read \"\(best.candidateName)\" — searching database…"
 
       do {
         let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: ocrCandidates)

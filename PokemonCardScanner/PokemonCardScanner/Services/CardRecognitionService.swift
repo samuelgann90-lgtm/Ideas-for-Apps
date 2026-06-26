@@ -10,19 +10,18 @@ struct RecognizedCardText: Sendable {
 }
 
 enum CardRecognitionService {
-  /// Returns multiple name guesses, best first.
+  /// Returns validated name guesses, best first. Empty if OCR read gibberish.
   static func recognizeCardCandidates(from image: CGImage) async -> [RecognizedCardText] {
     let cardCrop = cropToCardRegion(image)
     let nameBand = cropNameBand(cardCrop)
+    let numberBand = cropNumberBand(cardCrop)
 
-    async let fullResults = recognizeText(in: enhanceForOCR(cardCrop))
-    async let nameResults = recognizeText(in: enhanceForOCR(nameBand))
+    async let nameLines = recognizeText(in: enhanceForOCR(nameBand))
+    async let numberLines = recognizeText(in: enhanceForOCR(numberBand))
 
-    let fullLines = await fullResults
-    let nameLines = await nameResults
-    let lines = fullLines + nameLines
-    let parsed = parseCardText(from: lines)
-    return parsed
+    let collectorNumber = findCollectorNumber(in: await numberLines)
+    let nameCandidates = parseNameBandLines(await nameLines)
+    return await validateWithDatabase(nameCandidates, collectorNumber: collectorNumber)
   }
 
   static func recognizeCard(from image: CGImage) async -> RecognizedCardText? {
@@ -30,17 +29,17 @@ enum CardRecognitionService {
     return candidates.first
   }
 
-  private static func recognizeText(in image: CGImage) async -> [(text: String, confidence: Float, midY: CGFloat)] {
+  // MARK: - OCR
+
+  private static func recognizeText(in image: CGImage) async -> [(text: String, confidence: Float)] {
     await withCheckedContinuation { continuation in
       let request = VNRecognizeTextRequest { request, _ in
         let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
-        var lines: [(text: String, confidence: Float, midY: CGFloat)] = []
+        var lines: [(text: String, confidence: Float)] = []
 
         for observation in observations {
-          let box = observation.boundingBox
-          let midY = box.midY
-          for candidate in observation.topCandidates(3) {
-            lines.append((candidate.string, candidate.confidence, midY))
+          for candidate in observation.topCandidates(5) {
+            lines.append((candidate.string, candidate.confidence))
           }
         }
 
@@ -48,9 +47,10 @@ enum CardRecognitionService {
       }
 
       request.recognitionLevel = .accurate
-      request.usesLanguageCorrection = true
+      // Pokémon names are not dictionary words — autocorrect turns garble into "Doo Da" etc.
+      request.usesLanguageCorrection = false
       request.recognitionLanguages = ["en-US"]
-      request.minimumTextHeight = 0.012
+      request.minimumTextHeight = 0.02
 
       let handler = VNImageRequestHandler(cgImage: image, options: [:])
       do {
@@ -61,82 +61,56 @@ enum CardRecognitionService {
     }
   }
 
-  private static func parseCardText(
-    from lines: [(text: String, confidence: Float, midY: CGFloat)]
-  ) -> [RecognizedCardText] {
-    guard !lines.isEmpty else { return [] }
+  // MARK: - Parsing
 
-    let deduped = dedupeLines(lines)
-    let sortedByY = deduped.sorted { $0.midY > $1.midY }
-    let collectorNumber = findCollectorNumber(in: sortedByY)
-    let mergedNames = mergeNameLines(sortedByY)
-
-    var results: [RecognizedCardText] = []
+  private static func parseNameBandLines(
+    _ lines: [(text: String, confidence: Float)]
+  ) -> [(name: String, confidence: Float)] {
+    var results: [(String, Float)] = []
     var seen = Set<String>()
 
-    for (name, confidence) in mergedNames {
-      let cleaned = cleanCardName(name)
+    let sorted = lines.sorted { $0.confidence > $1.confidence }
+
+    for (text, confidence) in sorted {
+      let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard looksLikeCardName(trimmed) else { continue }
+
+      let cleaned = cleanCardName(trimmed)
       guard !cleaned.isEmpty else { continue }
+
       let key = cleaned.lowercased()
       guard !seen.contains(key) else { continue }
       seen.insert(key)
 
-      results.append(
-        RecognizedCardText(
-          candidateName: cleaned,
-          collectorNumber: collectorNumber,
-          confidence: confidence
-        )
-      )
+      results.append((cleaned, confidence))
     }
 
-    // Fallback: any plausible single line in the upper half of the card.
-    if results.isEmpty {
-      for (text, confidence, midY) in sortedByY where midY > 0.45 {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if looksLikeCardName(trimmed) {
-          let cleaned = cleanCardName(trimmed)
-          if !cleaned.isEmpty {
-            results.append(
-              RecognizedCardText(
-                candidateName: cleaned,
-                collectorNumber: collectorNumber,
-                confidence: confidence * 0.8
-              )
-            )
+    // Try joining adjacent short fragments (e.g. "Pikachu" + "ex" read separately).
+    let words = sorted.map(\.text).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    for i in 0..<words.count {
+      for j in (i + 1)...min(i + 2, words.count - 1) {
+        let combined = words[i...j].joined(separator: " ")
+        if looksLikeCardName(combined) {
+          let cleaned = cleanCardName(combined)
+          let key = cleaned.lowercased()
+          if !seen.contains(key) {
+            seen.insert(key)
+            results.append((cleaned, sorted[i].confidence * 0.95))
           }
         }
       }
     }
 
-    return results.sorted { $0.confidence > $1.confidence }
-  }
-
-  private static func dedupeLines(
-    _ lines: [(text: String, confidence: Float, midY: CGFloat)]
-  ) -> [(text: String, confidence: Float, midY: CGFloat)] {
-    var best: [String: (text: String, confidence: Float, midY: CGFloat)] = [:]
-    for line in lines {
-      let key = line.text.lowercased()
-      if let existing = best[key] {
-        if line.confidence > existing.confidence {
-          best[key] = line
-        }
-      } else {
-        best[key] = line
-      }
-    }
-    return Array(best.values)
+    return results.sorted { $0.1 > $1.1 }
   }
 
   private static func findCollectorNumber(
-    in lines: [(text: String, confidence: Float, midY: CGFloat)]
+    in lines: [(text: String, confidence: Float)]
   ) -> String? {
     let collectorPattern = #"\d{1,4}\s*/\s*\d{1,4}"#
     let collectorRegex = try? NSRegularExpression(pattern: collectorPattern)
 
-    // Collector numbers usually appear in the lower portion of the card.
-    for (text, _, midY) in lines.sorted(by: { $0.midY < $1.midY }) where midY < 0.55 {
+    for (text, _) in lines {
       let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
       if let regex = collectorRegex,
         regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) != nil
@@ -147,62 +121,109 @@ enum CardRecognitionService {
     return nil
   }
 
-  private static func mergeNameLines(
-    _ lines: [(text: String, confidence: Float, midY: CGFloat)]
-  ) -> [(String, Float)] {
-    // Name area: upper ~40% of the card in Vision coordinates.
-    let nameLines = lines.filter { $0.midY > 0.58 && looksLikeCardName($0.text) }
-    guard !nameLines.isEmpty else { return [] }
+  // MARK: - Database validation
 
-    var bands: [[(text: String, confidence: Float, midY: CGFloat)]] = []
-    for line in nameLines {
-      if let index = bands.firstIndex(where: { abs($0[0].midY - line.midY) < 0.04 }) {
-        bands[index].append(line)
-      } else {
-        bands.append([line])
+  /// Only return names that actually exist in the Pokémon TCG database.
+  private static func validateWithDatabase(
+    _ candidates: [(name: String, confidence: Float)],
+    collectorNumber: String?
+  ) async -> [RecognizedCardText] {
+    guard !candidates.isEmpty else { return [] }
+
+    var scored: [(name: String, confidence: Float, apiScore: Int)] = []
+
+    for (name, confidence) in candidates {
+      let score = await databaseMatchScore(for: name)
+      if score > 0 {
+        scored.append((name, confidence, score))
       }
     }
 
-    var merged: [(String, Float)] = []
-    for band in bands {
-      let sorted = band.sorted { $0.confidence > $1.confidence }
-      if let best = sorted.first {
-        merged.append((best.text, best.confidence))
-      }
-
-      // Combine short lines on the same row (e.g. "Charizard" + "ex").
-      let texts = band.map(\.text).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-      if texts.count > 1 {
-        let combined = texts.joined(separator: " ")
-        let avgConfidence = band.map(\.confidence).reduce(0, +) / Float(band.count)
-        if looksLikeCardName(combined) {
-          merged.append((combined, avgConfidence))
+    // Also try API suggestions from short prefixes of high-confidence OCR garbage.
+    if scored.isEmpty {
+      for (name, confidence) in candidates.prefix(3) {
+        let prefix = String(name.prefix(4))
+        guard prefix.count >= 3 else { continue }
+        let suggestions = await PokemonTCGService.shared.suggestNames(matching: prefix)
+        for suggestion in suggestions.prefix(3) {
+          scored.append((suggestion, confidence * 0.7, 80))
         }
       }
     }
 
-    return merged.sorted { $0.1 > $1.1 }
+    guard !scored.isEmpty else { return [] }
+
+    let sorted = scored.sorted {
+      if $0.apiScore != $1.apiScore { return $0.apiScore > $1.apiScore }
+      return $0.confidence > $1.confidence
+    }
+
+    var seen = Set<String>()
+    var results: [RecognizedCardText] = []
+
+    for item in sorted {
+      let key = item.name.lowercased()
+      guard !seen.contains(key) else { continue }
+      seen.insert(key)
+      results.append(
+        RecognizedCardText(
+          candidateName: item.name,
+          collectorNumber: collectorNumber,
+          confidence: item.confidence
+        )
+      )
+      if results.count >= 5 { break }
+    }
+
+    return results
   }
+
+  private static func databaseMatchScore(for name: String) async -> Int {
+    let cleaned = cleanCardName(name)
+    guard cleaned.count >= 3 else { return 0 }
+
+    // Direct search hit = strong match.
+    if let cards = try? await PokemonTCGService.shared.searchCards(name: cleaned), !cards.isEmpty {
+      let exact = cards.contains { $0.name.localizedCaseInsensitiveCompare(cleaned) == .orderedSame }
+      return exact ? 100 : 70
+    }
+
+    // Prefix suggestions from the API.
+    let prefix = String(cleaned.prefix(4))
+    let suggestions = await PokemonTCGService.shared.suggestNames(matching: prefix)
+    for suggestion in suggestions {
+      if suggestion.localizedCaseInsensitiveCompare(cleaned) == .orderedSame { return 90 }
+      if suggestion.localizedCaseInsensitiveContains(cleaned) { return 75 }
+      if cleaned.localizedCaseInsensitiveContains(suggestion) { return 60 }
+    }
+
+    return 0
+  }
+
+  // MARK: - Filters
 
   private static func looksLikeCardName(_ text: String) -> Bool {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     let lower = trimmed.lowercased()
 
-    let blockedExact = [
+    let blocked = [
       "hp", "weakness", "resistance", "retreat", "trainer", "energy",
-      "pokémon", "pokemon", "illus", "©", "ability", "attack",
+      "pokémon", "pokemon", "illus", "©", "ability", "attack", "put",
+      "coin", "damage", "during", "your", "opponent", "this", "the",
     ]
-    if blockedExact.contains(lower) { return false }
-    if lower.hasPrefix("stage ") && !lower.contains(" ") { return false }
-    if trimmed.count < 2 || trimmed.count > 45 { return false }
+    if blocked.contains(lower) { return false }
+    if lower.hasPrefix("stage ") { return false }
+    if trimmed.count < 3 || trimmed.count > 45 { return false }
 
-    // Allow "ex", "V", "GX", "VMAX" style names.
     let letterCount = trimmed.filter(\.isLetter).count
-    guard letterCount >= 2 else { return false }
-
-    // Pure numbers or set codes only.
+    guard letterCount >= 3 else { return false }
     if trimmed.rangeOfCharacter(from: .letters) == nil { return false }
-    if trimmed.allSatisfy({ $0.isNumber || $0 == "/" }) { return false }
+
+    // Reject obvious gibberish: all very short words with no Pokémon suffix.
+    let words = lower.split(separator: " ").map(String.init)
+    let pokemonSuffixes = ["ex", "gx", "v", "vmax", "vstar", "lv.x", "-gx", "-ex"]
+    let hasSuffix = pokemonSuffixes.contains { lower.contains($0) }
+    if words.allSatisfy({ $0.count <= 3 }) && !hasSuffix { return false }
 
     return true
   }
@@ -213,6 +234,8 @@ enum CardRecognitionService {
       .replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
       .trimmingCharacters(in: .whitespacesAndNewlines)
   }
+
+  // MARK: - Image crops
 
   private static func cropToCardRegion(_ image: CGImage) -> CGImage {
     let width = image.width
@@ -228,11 +251,27 @@ enum CardRecognitionService {
     return image.cropping(to: rect) ?? image
   }
 
+  /// Top of card where the Pokémon name is printed (CGImage origin is top-left).
   private static func cropNameBand(_ cardImage: CGImage) -> CGImage {
     let width = cardImage.width
     let height = cardImage.height
-    let bandHeight = Int(Double(height) * 0.28)
-    let rect = CGRect(x: 0, y: height - bandHeight, width: width, height: bandHeight)
+    let bandHeight = Int(Double(height) * 0.24)
+    let rect = CGRect(x: 0, y: 0, width: width, height: bandHeight)
+    return cardImage.cropping(to: rect) ?? cardImage
+  }
+
+  /// Bottom-right corner where collector number is printed (e.g. 025/165).
+  private static func cropNumberBand(_ cardImage: CGImage) -> CGImage {
+    let width = cardImage.width
+    let height = cardImage.height
+    let bandWidth = Int(Double(width) * 0.4)
+    let bandHeight = Int(Double(height) * 0.14)
+    let rect = CGRect(
+      x: width - bandWidth,
+      y: height - bandHeight,
+      width: bandWidth,
+      height: bandHeight
+    )
     return cardImage.cropping(to: rect) ?? cardImage
   }
 
@@ -241,12 +280,12 @@ enum CardRecognitionService {
     let context = CIContext()
 
     let contrast = ciImage.applyingFilter("CIColorControls", parameters: [
-      kCIInputContrastKey: 1.25,
-      kCIInputBrightnessKey: 0.02,
+      kCIInputContrastKey: 1.35,
+      kCIInputBrightnessKey: 0.04,
       kCIInputSaturationKey: 1.0,
     ])
     let sharpened = contrast.applyingFilter("CISharpenLuminance", parameters: [
-      kCIInputSharpnessKey: 0.6,
+      kCIInputSharpnessKey: 0.8,
     ])
 
     guard let output = context.createCGImage(sharpened, from: sharpened.extent) else {
