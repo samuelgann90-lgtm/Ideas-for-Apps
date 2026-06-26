@@ -1,7 +1,6 @@
 import AVFoundation
 import UIKit
 
-@MainActor
 final class CameraManager: NSObject, ObservableObject {
   @Published var permissionDenied = false
   @Published var isRunning = false
@@ -9,11 +8,8 @@ final class CameraManager: NSObject, ObservableObject {
 
   let session = AVCaptureSession()
   private let videoOutput = AVCaptureVideoDataOutput()
-  private let photoOutput = AVCapturePhotoOutput()
   private let sessionQueue = DispatchQueue(label: "camera.session.queue")
   private var isConfigured = false
-  private var isCapturingPhoto = false
-  private var photoContinuation: CheckedContinuation<CGImage?, Never>?
 
   func requestPermissionAndStart() {
     switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -21,7 +17,7 @@ final class CameraManager: NSObject, ObservableObject {
       startSession()
     case .notDetermined:
       AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
-        Task { @MainActor in
+        DispatchQueue.main.async {
           if granted {
             self?.startSession()
           } else {
@@ -37,53 +33,21 @@ final class CameraManager: NSObject, ObservableObject {
   func stopSession() {
     sessionQueue.async { [weak self] in
       self?.session.stopRunning()
-      Task { @MainActor in
+      DispatchQueue.main.async {
         self?.isRunning = false
       }
     }
   }
 
+  /// Uses the latest camera preview frame (stable and avoids photo-capture crashes).
   func capturePhoto() async -> CGImage? {
-    if isCapturingPhoto {
-      return latestFrame
-    }
-
-    return await withCheckedContinuation { continuation in
-      sessionQueue.async { [weak self] in
-        guard let self else {
-          continuation.resume(returning: nil)
-          return
-        }
-
-        if self.isCapturingPhoto {
-          Task { @MainActor in
-            continuation.resume(returning: self.latestFrame)
-          }
-          return
-        }
-
-        self.isCapturingPhoto = true
-        Task { @MainActor in
-          self.photoContinuation = continuation
-        }
-
-        let settings = AVCapturePhotoSettings()
-        if self.photoOutput.supportedFlashModes.contains(.auto) {
-          settings.flashMode = .auto
-        }
-        self.photoOutput.capturePhoto(with: settings, delegate: self)
+    for _ in 0..<30 {
+      if let frame = await MainActor.run(body: { latestFrame }) {
+        return frame
       }
+      try? await Task.sleep(nanoseconds: 50_000_000)
     }
-  }
-
-  private func finishPhotoCapture(with image: CGImage?) {
-    isCapturingPhoto = false
-    if let image {
-      latestFrame = image
-    }
-    let continuation = photoContinuation
-    photoContinuation = nil
-    continuation?.resume(returning: image)
+    return await MainActor.run { latestFrame }
   }
 
   private func startSession() {
@@ -94,7 +58,7 @@ final class CameraManager: NSObject, ObservableObject {
       }
       if !self.session.isRunning {
         self.session.startRunning()
-        Task { @MainActor in
+        DispatchQueue.main.async {
           self.isRunning = true
         }
       }
@@ -103,7 +67,7 @@ final class CameraManager: NSObject, ObservableObject {
 
   private func configureSession() {
     session.beginConfiguration()
-    session.sessionPreset = .photo
+    session.sessionPreset = .high
 
     guard
       let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -138,24 +102,13 @@ final class CameraManager: NSObject, ObservableObject {
       }
     }
 
-    if session.canAddOutput(photoOutput) {
-      session.addOutput(photoOutput)
-      if let connection = photoOutput.connection(with: .video) {
-        connection.videoRotationAngle = 90
-      }
-    }
-
     session.commitConfiguration()
     isConfigured = true
-  }
-
-  func captureCurrentFrame() -> CGImage? {
-    latestFrame
   }
 }
 
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
-  nonisolated func captureOutput(
+  func captureOutput(
     _ output: AVCaptureOutput,
     didOutput sampleBuffer: CMSampleBuffer,
     from connection: AVCaptureConnection
@@ -166,29 +119,8 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     let context = CIContext()
     guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return }
 
-    Task { @MainActor in
+    DispatchQueue.main.async {
       self.latestFrame = cgImage
-    }
-  }
-}
-
-extension CameraManager: AVCapturePhotoCaptureDelegate {
-  nonisolated func photoOutput(
-    _ output: AVCapturePhotoOutput,
-    didFinishProcessingPhoto photo: AVCapturePhoto,
-    error: Error?
-  ) {
-    let cgImage: CGImage? = {
-      guard error == nil else { return nil }
-      guard let data = photo.fileDataRepresentation(),
-        let uiImage = UIImage(data: data),
-        let image = uiImage.cgImage
-      else { return nil }
-      return image
-    }()
-
-    Task { @MainActor in
-      self.finishPhotoCapture(with: cgImage)
     }
   }
 }

@@ -175,37 +175,31 @@ struct ScannerView: View {
     statusMessage = "Hold still — capturing…"
     lastScanDate = Date()
 
-    Task {
-      defer { Task { @MainActor in isScanning = false } }
+    Task { @MainActor in
+      defer { isScanning = false }
 
       do {
         guard let frame = await camera.capturePhoto() else {
-          await MainActor.run { statusMessage = "Camera not ready. Try again." }
+          statusMessage = "Camera not ready. Try again."
           return
         }
 
-        await MainActor.run { statusMessage = "Reading card text…" }
+        statusMessage = "Reading card text…"
 
         let ocrCandidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
 
         guard !ocrCandidates.isEmpty else {
-          await MainActor.run {
-            statusMessage = "Couldn't read the card name. Fill the frame with the card name at the top, or use Search."
-          }
+          statusMessage = "Couldn't read the card name. Fill the frame with the card name at the top, or use Search."
           return
         }
 
         let best = ocrCandidates[0]
-        await MainActor.run {
-          statusMessage = "Read \"\(best.candidateName)\" — searching…"
-        }
+        statusMessage = "Read \"\(best.candidateName)\" — searching…"
 
         let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: ocrCandidates)
-        await presentScanResults(cards: cards, ocrName: best.candidateName)
+        presentScanResults(cards: cards, ocrName: best.candidateName)
       } catch {
-        await MainActor.run {
-          statusMessage = "Search failed. Check your internet and API key, or use Search."
-        }
+        statusMessage = "Search failed. Check your internet and API key, or use Search."
       }
     }
   }
@@ -228,11 +222,11 @@ struct ScannerView: View {
   }
 
   @MainActor
-  private func presentScanResults(cards: [PokemonCard], ocrName: String) async {
+  private func presentScanResults(cards: [PokemonCard], ocrName: String) {
     let ranked = cards.prefix(12).map {
       RankedCardMatch(card: $0, similarity: 0, visualDistance: .infinity)
     }
-    await presentMatches(Array(ranked), ocrName: ocrName)
+    presentMatches(Array(ranked), ocrName: ocrName)
   }
 
   @MainActor

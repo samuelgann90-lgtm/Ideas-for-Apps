@@ -3,6 +3,24 @@ import Vision
 import UIKit
 import CoreImage
 
+private final class OCRResumeState: @unchecked Sendable {
+  private let lock = NSLock()
+  private var finished = false
+  private let continuation: CheckedContinuation<[(text: String, confidence: Float)], Never>
+
+  init(_ continuation: CheckedContinuation<[(text: String, confidence: Float)], Never>) {
+    self.continuation = continuation
+  }
+
+  func finish(with lines: [(text: String, confidence: Float)]) {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !finished else { return }
+    finished = true
+    continuation.resume(returning: lines)
+  }
+}
+
 struct RecognizedCardText: Sendable {
   let candidateName: String
   let collectorNumber: String?
@@ -35,16 +53,7 @@ enum CardRecognitionService {
     guard image.width > 10, image.height > 10 else { return [] }
 
     return await withCheckedContinuation { continuation in
-      var didResume = false
-      let lock = NSLock()
-
-      func resumeOnce(returning lines: [(text: String, confidence: Float)]) {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !didResume else { return }
-        didResume = true
-        continuation.resume(returning: lines)
-      }
+      let state = OCRResumeState(continuation)
 
       let request = VNRecognizeTextRequest { request, _ in
         let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
@@ -54,7 +63,7 @@ enum CardRecognitionService {
             lines.append((candidate.string, candidate.confidence))
           }
         }
-        resumeOnce(returning: lines)
+        state.finish(with: lines)
       }
 
       request.recognitionLevel = .accurate
@@ -67,7 +76,7 @@ enum CardRecognitionService {
         do {
           try handler.perform([request])
         } catch {
-          resumeOnce(returning: [])
+          state.finish(with: [])
         }
       }
     }
