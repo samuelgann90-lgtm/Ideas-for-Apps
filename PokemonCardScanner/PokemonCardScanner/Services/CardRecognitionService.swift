@@ -35,15 +35,16 @@ enum CardRecognitionService {
     guard image.width > 10, image.height > 10 else { return [] }
 
     return await withCheckedContinuation { continuation in
-      final class ResumeGuard {
-        var resumed = false
-        func resumeOnce(returning lines: [(text: String, confidence: Float)]) {
-          guard !resumed else { return }
-          resumed = true
-          continuation.resume(returning: lines)
-        }
+      var didResume = false
+      let lock = NSLock()
+
+      func resumeOnce(returning lines: [(text: String, confidence: Float)]) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !didResume else { return }
+        didResume = true
+        continuation.resume(returning: lines)
       }
-      let guardBox = ResumeGuard()
 
       let request = VNRecognizeTextRequest { request, _ in
         let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
@@ -53,7 +54,7 @@ enum CardRecognitionService {
             lines.append((candidate.string, candidate.confidence))
           }
         }
-        guardBox.resumeOnce(returning: lines)
+        resumeOnce(returning: lines)
       }
 
       request.recognitionLevel = .accurate
@@ -66,7 +67,7 @@ enum CardRecognitionService {
         do {
           try handler.perform([request])
         } catch {
-          guardBox.resumeOnce(returning: [])
+          resumeOnce(returning: [])
         }
       }
     }
