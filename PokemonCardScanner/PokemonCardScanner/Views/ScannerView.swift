@@ -5,8 +5,15 @@ struct ScannerView: View {
 
   @State private var isScanning = false
   @State private var statusMessage = "Point your camera at a Pokémon card"
-  @State private var sheetContent: ScannerSheetContent?
   @State private var showManualSearch = false
+
+  @State private var resultCard: PokemonCard?
+  @State private var resultSimilarity: Float?
+  @State private var showCardResult = false
+
+  @State private var pickerMatches: [RankedCardMatch] = []
+  @State private var showCardPicker = false
+
   @State private var lastScanDate: Date?
 
   private let scanCooldown: TimeInterval = 2.5
@@ -29,15 +36,17 @@ struct ScannerView: View {
       }
       .onAppear { camera.requestPermissionAndStart() }
       .onDisappear { camera.stopSession() }
-      .sheet(item: $sheetContent) { content in
-        switch content {
-        case .result(let card, let similarity):
-          CardResultView(card: card, matchSimilarity: similarity) {
-            sheetContent = nil
+      .fullScreenCover(isPresented: $showCardResult) {
+        if let card = resultCard {
+          CardResultView(card: card, matchSimilarity: resultSimilarity) {
+            showCardResult = false
+            resultCard = nil
+            statusMessage = "Point your camera at a Pokémon card"
           }
-        case .picker(let matches):
-          cardPickerSheet(matches: matches)
         }
+      }
+      .fullScreenCover(isPresented: $showCardPicker) {
+        cardPickerSheet(matches: pickerMatches)
       }
       .sheet(isPresented: $showManualSearch) {
         ManualSearchView(isPresented: $showManualSearch) { query in
@@ -63,6 +72,7 @@ struct ScannerView: View {
         Text(statusMessage)
           .font(.subheadline.weight(.medium))
           .foregroundStyle(.white)
+          .multilineTextAlignment(.center)
           .padding(.horizontal, 16)
           .padding(.vertical, 10)
           .background(.black.opacity(0.45), in: Capsule())
@@ -118,7 +128,7 @@ struct ScannerView: View {
     NavigationStack {
       List(matches) { match in
         Button {
-          sheetContent = .result(match.card, match.similarity)
+          openCardResult(match.card, similarity: match.similarity)
         } label: {
           HStack(spacing: 12) {
             AsyncImage(url: URL(string: match.card.images.small)) { image in
@@ -139,18 +149,24 @@ struct ScannerView: View {
                   .font(.subheadline.weight(.semibold))
                   .foregroundStyle(.green)
                 Spacer()
-                Text(match.similarityLabel)
-                  .font(.caption.weight(.medium))
-                  .foregroundStyle(.blue)
+                if match.similarity > 0 {
+                  Text(match.similarityLabel)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.blue)
+                }
               }
             }
           }
         }
       }
-      .navigationTitle("Pick a Match")
+      .navigationTitle("Pick Your Card")
+      .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Cancel") { sheetContent = nil }
+          Button("Cancel") {
+            showCardPicker = false
+            statusMessage = "Point your camera at a Pokémon card"
+          }
         }
       }
     }
@@ -177,24 +193,22 @@ struct ScannerView: View {
 
       statusMessage = "Reading card text…"
 
-      let candidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
+      let ocrCandidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
 
-      guard !candidates.isEmpty else {
-        statusMessage = "Couldn't read the card name. Center the card, add light, and try again — or use Search."
+      guard !ocrCandidates.isEmpty else {
+        statusMessage = "Couldn't read the card name. Add light, fill the frame, or use Search."
         return
       }
 
-      let best = candidates[0]
-      statusMessage = "Found \"\(best.candidateName)\" — looking up card…"
+      let best = ocrCandidates[0]
+      statusMessage = "Found \"\(best.candidateName)\" — searching…"
 
       do {
-        let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: candidates)
-        statusMessage = "Matching artwork…"
-        let ranked = await VisualMatchingService.rank(candidates: cards, scannedImage: frame)
-        await presentResults(ranked, ocrName: best.candidateName)
+        let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: ocrCandidates)
+        await presentScanResults(cards: cards, scannedImage: frame, ocrName: best.candidateName)
       } catch {
-        let triedNames = candidates.prefix(3).map(\.candidateName).joined(separator: ", ")
-        statusMessage = "No match for: \(triedNames). Try Search or rescan with better light."
+        let triedNames = ocrCandidates.prefix(3).map(\.candidateName).joined(separator: ", ")
+        statusMessage = "No match for: \(triedNames). Try Search instead."
       }
     }
   }
@@ -210,42 +224,55 @@ struct ScannerView: View {
     do {
       let cards = try await PokemonTCGService.shared.searchCards(name: trimmed)
       let ranked = cards.map { RankedCardMatch(card: $0, similarity: 0, visualDistance: .infinity) }
-      await presentResults(ranked)
+      await presentMatches(ranked, ocrName: trimmed)
     } catch {
       statusMessage = error.localizedDescription
     }
   }
 
   @MainActor
-  private func presentResults(_ matches: [RankedCardMatch], ocrName: String? = nil) {
-    guard let top = matches.first else {
+  private func presentScanResults(cards: [PokemonCard], scannedImage: CGImage, ocrName: String) async {
+    if cards.count == 1 {
+      openCardResult(cards[0], similarity: nil)
+      statusMessage = "Showing \(cards[0].name)"
+      return
+    }
+
+    statusMessage = "Found \(cards.count) matches — ranking…"
+    let topCandidates = Array(cards.prefix(6))
+    let ranked = await VisualMatchingService.rank(candidates: topCandidates, scannedImage: scannedImage)
+    await presentMatches(ranked, ocrName: ocrName)
+  }
+
+  @MainActor
+  private func presentMatches(_ matches: [RankedCardMatch], ocrName: String?) {
+    guard !matches.isEmpty else {
       statusMessage = "No matches found."
       return
     }
 
-    if matches.count == 1 || VisualMatchingService.shouldAutoSelect(matches) {
-      sheetContent = .result(top.card, top.similarity)
-      statusMessage = "Tap the shutter to scan another card"
+    if matches.count == 1 {
+      openCardResult(matches[0].card, similarity: matches[0].similarity)
+      statusMessage = "Showing \(matches[0].card.name)"
+      return
+    }
+
+    pickerMatches = matches
+    showCardPicker = true
+    if let ocrName {
+      statusMessage = "Pick the right \"\(ocrName)\" card"
     } else {
-      sheetContent = .picker(matches)
-      if let ocrName {
-        statusMessage = "Several \"\(ocrName)\" cards — pick the best match"
-      } else {
-        statusMessage = "Multiple matches — pick the best visual match"
-      }
+      statusMessage = "Pick the card that matches yours"
     }
   }
-}
 
-private enum ScannerSheetContent: Identifiable {
-  case result(PokemonCard, Float?)
-  case picker([RankedCardMatch])
-
-  var id: String {
-    switch self {
-    case .result(let card, _): return "result-\(card.id)"
-    case .picker(let matches): return "picker-\(matches.map(\.id).joined())"
-    }
+  @MainActor
+  private func openCardResult(_ card: PokemonCard, similarity: Float?) {
+    showCardPicker = false
+    resultCard = card
+    resultSimilarity = similarity
+    showCardResult = true
+    statusMessage = "Showing \(card.name)"
   }
 }
 
