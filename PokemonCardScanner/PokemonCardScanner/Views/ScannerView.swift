@@ -1,5 +1,11 @@
 import SwiftUI
 
+private struct CardPresentation: Identifiable {
+  let id = UUID()
+  let card: PokemonCard
+  let similarity: Float?
+}
+
 struct ScannerView: View {
   @StateObject private var camera = CameraManager()
 
@@ -7,10 +13,7 @@ struct ScannerView: View {
   @State private var statusMessage = "Point your camera at a Pokémon card"
   @State private var showManualSearch = false
 
-  @State private var resultCard: PokemonCard?
-  @State private var resultSimilarity: Float?
-  @State private var showCardResult = false
-
+  @State private var presentedCard: CardPresentation?
   @State private var pickerMatches: [RankedCardMatch] = []
   @State private var showCardPicker = false
 
@@ -36,13 +39,10 @@ struct ScannerView: View {
       }
       .onAppear { camera.requestPermissionAndStart() }
       .onDisappear { camera.stopSession() }
-      .fullScreenCover(isPresented: $showCardResult) {
-        if let card = resultCard {
-          CardResultView(card: card, matchSimilarity: resultSimilarity) {
-            showCardResult = false
-            resultCard = nil
-            statusMessage = "Point your camera at a Pokémon card"
-          }
+      .fullScreenCover(item: $presentedCard) { presentation in
+        CardResultView(card: presentation.card, matchSimilarity: presentation.similarity) {
+          presentedCard = nil
+          statusMessage = "Point your camera at a Pokémon card"
         }
       }
       .fullScreenCover(isPresented: $showCardPicker) {
@@ -141,20 +141,12 @@ struct ScannerView: View {
 
             VStack(alignment: .leading, spacing: 4) {
               Text(match.card.name).font(.headline)
-              Text("\(match.card.set.name) · #\(match.card.number)")
+              Text("\(match.set.name) · #\(match.number)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-              HStack {
-                Text(match.card.formattedPrice)
-                  .font(.subheadline.weight(.semibold))
-                  .foregroundStyle(.green)
-                Spacer()
-                if match.similarity > 0 {
-                  Text(match.similarityLabel)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.blue)
-                }
-              }
+              Text(match.card.formattedPrice)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.green)
             }
           }
         }
@@ -184,31 +176,36 @@ struct ScannerView: View {
     lastScanDate = Date()
 
     Task {
-      defer { isScanning = false }
-
-      guard let frame = await camera.capturePhoto() else {
-        statusMessage = "Camera not ready. Try again."
-        return
-      }
-
-      statusMessage = "Reading card text…"
-
-      let ocrCandidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
-
-      guard !ocrCandidates.isEmpty else {
-        statusMessage = "Couldn't read the card name. Fill the frame with the card name at the top, or use Search."
-        return
-      }
-
-      let best = ocrCandidates[0]
-      statusMessage = "Read \"\(best.candidateName)\" — searching database…"
+      defer { Task { @MainActor in isScanning = false } }
 
       do {
+        guard let frame = await camera.capturePhoto() else {
+          await MainActor.run { statusMessage = "Camera not ready. Try again." }
+          return
+        }
+
+        await MainActor.run { statusMessage = "Reading card text…" }
+
+        let ocrCandidates = await CardRecognitionService.recognizeCardCandidates(from: frame)
+
+        guard !ocrCandidates.isEmpty else {
+          await MainActor.run {
+            statusMessage = "Couldn't read the card name. Fill the frame with the card name at the top, or use Search."
+          }
+          return
+        }
+
+        let best = ocrCandidates[0]
+        await MainActor.run {
+          statusMessage = "Read \"\(best.candidateName)\" — searching…"
+        }
+
         let cards = try await PokemonTCGService.shared.searchWithFallbacks(candidates: ocrCandidates)
-        await presentScanResults(cards: cards, scannedImage: frame, ocrName: best.candidateName)
+        await presentScanResults(cards: cards, ocrName: best.candidateName)
       } catch {
-        let triedNames = ocrCandidates.prefix(3).map(\.candidateName).joined(separator: ", ")
-        statusMessage = "No match for: \(triedNames). Try Search instead."
+        await MainActor.run {
+          statusMessage = "Search failed. Check your internet and API key, or use Search."
+        }
       }
     }
   }
@@ -231,17 +228,11 @@ struct ScannerView: View {
   }
 
   @MainActor
-  private func presentScanResults(cards: [PokemonCard], scannedImage: CGImage, ocrName: String) async {
-    if cards.count == 1 {
-      openCardResult(cards[0], similarity: nil)
-      statusMessage = "Showing \(cards[0].name)"
-      return
+  private func presentScanResults(cards: [PokemonCard], ocrName: String) async {
+    let ranked = cards.prefix(12).map {
+      RankedCardMatch(card: $0, similarity: 0, visualDistance: .infinity)
     }
-
-    statusMessage = "Found \(cards.count) matches — ranking…"
-    let topCandidates = Array(cards.prefix(6))
-    let ranked = await VisualMatchingService.rank(candidates: topCandidates, scannedImage: scannedImage)
-    await presentMatches(ranked, ocrName: ocrName)
+    await presentMatches(Array(ranked), ocrName: ocrName)
   }
 
   @MainActor
@@ -269,9 +260,7 @@ struct ScannerView: View {
   @MainActor
   private func openCardResult(_ card: PokemonCard, similarity: Float?) {
     showCardPicker = false
-    resultCard = card
-    resultSimilarity = similarity
-    showCardResult = true
+    presentedCard = CardPresentation(card: card, similarity: similarity)
     statusMessage = "Showing \(card.name)"
   }
 }

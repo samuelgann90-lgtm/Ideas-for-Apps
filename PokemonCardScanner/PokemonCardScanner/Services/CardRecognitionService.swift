@@ -99,7 +99,9 @@ enum CardRecognitionService {
     // Try joining adjacent short fragments (e.g. "Pikachu" + "ex" read separately).
     let words = sorted.map(\.text).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
     for i in 0..<words.count {
-      for j in (i + 1)...min(i + 2, words.count - 1) {
+      guard i + 1 < words.count else { continue }
+      let upper = min(i + 2, words.count - 1)
+      for j in (i + 1)...upper {
         let combined = words[i...j].joined(separator: " ")
         if looksLikeCardName(combined) {
           let cleaned = cleanCardName(combined)
