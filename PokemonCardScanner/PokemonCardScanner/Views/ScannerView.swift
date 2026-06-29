@@ -259,7 +259,3 @@ struct ScannerView: View {
     statusMessage = "Showing \(card.name)"
   }
 }
-
-#Preview {
-  ScannerView()
-}

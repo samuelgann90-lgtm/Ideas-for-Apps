@@ -6,8 +6,8 @@ enum CollectionSortOption: String, CaseIterable, Identifiable {
   case dateAddedOldest = "Date Added (Oldest)"
   case priceHighToLow = "Price: High to Low"
   case priceLowToHigh = "Price: Low to High"
-  case nameAZ = "Name: A–Z"
-  case nameZA = "Name: Z–A"
+  case nameAZ = "Name: A-Z"
+  case nameZA = "Name: Z-A"
   case setName = "Set Name"
 
   var id: String { rawValue }
@@ -212,9 +212,4 @@ struct CollectionView: View {
       modelContext.delete(sorted[index])
     }
   }
-}
-
-#Preview {
-  CollectionView()
-    .modelContainer(for: CollectedCard.self, inMemory: true)
 }

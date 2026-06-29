@@ -1,6 +1,6 @@
 import Foundation
 
-struct PokemonCard: Identifiable, Decodable, Hashable {
+struct PokemonCard: Identifiable, Codable, Hashable {
   let id: String
   let name: String
   let number: String
@@ -9,43 +9,25 @@ struct PokemonCard: Identifiable, Decodable, Hashable {
   let images: CardImages
   let tcgplayer: TCGPlayerInfo?
 
-  init(
-    id: String,
-    name: String,
-    number: String,
-    rarity: String?,
-    set: CardSet,
-    images: CardImages,
-    tcgplayer: TCGPlayerInfo?
-  ) {
-    self.id = id
-    self.name = name
-    self.number = number
-    self.rarity = rarity
-    self.set = set
-    self.images = images
-    self.tcgplayer = tcgplayer
-  }
-
-  struct CardSet: Decodable, Hashable {
+  struct CardSet: Codable, Hashable {
     let id: String
     let name: String
     let series: String?
     let releaseDate: String?
   }
 
-  struct CardImages: Decodable, Hashable {
+  struct CardImages: Codable, Hashable {
     let small: String
     let large: String
   }
 
-  struct TCGPlayerInfo: Decodable, Hashable {
+  struct TCGPlayerInfo: Codable, Hashable {
     let url: String?
     let updatedAt: String?
     let prices: [String: PriceVariant]?
   }
 
-  struct PriceVariant: Decodable, Hashable {
+  struct PriceVariant: Codable, Hashable {
     let low: Double?
     let mid: Double?
     let high: Double?
@@ -69,6 +51,26 @@ struct PokemonCard: Identifiable, Decodable, Hashable {
     return prices
       .sorted { $0.key < $1.key }
       .map { (label: $0.key.capitalized, market: $0.value.market) }
+  }
+}
+
+extension PokemonCard {
+  init(
+    id: String,
+    name: String,
+    number: String,
+    rarity: String?,
+    set: CardSet,
+    images: CardImages,
+    tcgplayer: TCGPlayerInfo?
+  ) {
+    self.id = id
+    self.name = name
+    self.number = number
+    self.rarity = rarity
+    self.set = set
+    self.images = images
+    self.tcgplayer = tcgplayer
   }
 }
 

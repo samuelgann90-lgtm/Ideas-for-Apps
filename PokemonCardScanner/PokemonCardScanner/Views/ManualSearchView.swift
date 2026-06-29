@@ -123,7 +123,3 @@ struct ManualSearchView: View {
     suggestions = results
   }
 }
-
-#Preview {
-  ManualSearchView(isPresented: .constant(true)) { _ in }
-}

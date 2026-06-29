@@ -173,27 +173,3 @@ struct CardResultView: View {
     addedToCollection = true
   }
 }
-
-#Preview {
-  CardResultView(
-    card: PokemonCard(
-      id: "base1-4",
-      name: "Charizard",
-      number: "4",
-      rarity: "Rare Holo",
-      set: .init(id: "base1", name: "Base Set", series: "Base", releaseDate: "1999/01/09"),
-      images: .init(
-        small: "https://images.pokemontcg.io/base1/4.png",
-        large: "https://images.pokemontcg.io/base1/4_hires.png"
-      ),
-      tcgplayer: .init(
-        url: "https://prices.pokemontcg.io/tcgplayer/base1-4",
-        updatedAt: "2024/01/01",
-        prices: ["holofoil": .init(low: 250, mid: 350, high: 500, market: 320, directLow: nil)]
-      )
-    ),
-    matchSimilarity: 92,
-    onDismiss: {}
-  )
-  .modelContainer(for: CollectedCard.self, inMemory: true)
-}

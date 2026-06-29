@@ -15,8 +15,3 @@ struct ContentView: View {
     }
   }
 }
-
-#Preview {
-  ContentView()
-    .modelContainer(for: CollectedCard.self, inMemory: true)
-}
