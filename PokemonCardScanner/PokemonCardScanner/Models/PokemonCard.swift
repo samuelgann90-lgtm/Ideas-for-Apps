@@ -54,26 +54,6 @@ struct PokemonCard: Identifiable, Codable, Hashable {
   }
 }
 
-extension PokemonCard {
-  init(
-    id: String,
-    name: String,
-    number: String,
-    rarity: String?,
-    set: CardSet,
-    images: CardImages,
-    tcgplayer: TCGPlayerInfo?
-  ) {
-    self.id = id
-    self.name = name
-    self.number = number
-    self.rarity = rarity
-    self.set = set
-    self.images = images
-    self.tcgplayer = tcgplayer
-  }
-}
-
 struct CardsSearchResponse: Decodable {
   let data: [PokemonCard]
   let totalCount: Int
