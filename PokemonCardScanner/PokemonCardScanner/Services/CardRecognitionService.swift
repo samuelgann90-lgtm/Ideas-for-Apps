@@ -1,5 +1,5 @@
 import Foundation
-import Vision
+@preconcurrency import Vision
 import UIKit
 import CoreImage
 
@@ -55,23 +55,23 @@ enum CardRecognitionService {
     return await withCheckedContinuation { continuation in
       let state = OCRResumeState(continuation)
 
-      let request = VNRecognizeTextRequest { request, _ in
-        let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
-        var lines: [(text: String, confidence: Float)] = []
-        for observation in observations {
-          for candidate in observation.topCandidates(5) {
-            lines.append((candidate.string, candidate.confidence))
-          }
-        }
-        state.finish(with: lines)
-      }
-
-      request.recognitionLevel = .accurate
-      request.usesLanguageCorrection = false
-      request.recognitionLanguages = ["en-US"]
-      request.minimumTextHeight = 0.02
-
       DispatchQueue.global(qos: .userInitiated).async {
+        let request = VNRecognizeTextRequest { request, _ in
+          let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
+          var lines: [(text: String, confidence: Float)] = []
+          for observation in observations {
+            for candidate in observation.topCandidates(5) {
+              lines.append((candidate.string, candidate.confidence))
+            }
+          }
+          state.finish(with: lines)
+        }
+
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        request.recognitionLanguages = ["en-US"]
+        request.minimumTextHeight = 0.02
+
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
         do {
           try handler.perform([request])

@@ -141,7 +141,7 @@ struct ScannerView: View {
 
             VStack(alignment: .leading, spacing: 4) {
               Text(match.card.name).font(.headline)
-              Text("\(match.set.name) · #\(match.number)")
+              Text("\(match.card.set.name) · #\(match.card.number)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
               Text(match.card.formattedPrice)

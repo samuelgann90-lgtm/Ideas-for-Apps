@@ -1,7 +1,7 @@
 import AVFoundation
 import UIKit
 
-final class CameraManager: NSObject, ObservableObject {
+final class CameraManager: NSObject, ObservableObject, @unchecked Sendable {
   @Published var permissionDenied = false
   @Published var isRunning = false
   @Published var latestFrame: CGImage?
@@ -115,8 +115,9 @@ final class CameraManager: NSObject, ObservableObject {
   }
 
   private func setPortraitOrientation(on connection: AVCaptureConnection) {
-    guard connection.isVideoOrientationSupported else { return }
-    connection.videoOrientation = .portrait
+    if connection.isVideoRotationAngleSupported(90) {
+      connection.videoRotationAngle = 90
+    }
   }
 }
 
