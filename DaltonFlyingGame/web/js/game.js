@@ -189,6 +189,10 @@
     btnGuns.setPointerCapture(e.pointerId);
     gunsHeld = true;
     btnGuns.classList.add("held");
+    if (state.mode === "play") {
+      fireGuns();
+      gunCd = 0.075;
+    }
   });
   function endGuns() {
     gunsHeld = false;
@@ -201,6 +205,11 @@
     e.preventDefault();
     rocketQueued = true;
     btnRockets.classList.add("held");
+    if (state.mode === "play" && rocketCd <= 0) {
+      rocketQueued = false;
+      rocketCd = 0.55;
+      fireRocket();
+    }
   });
   btnRockets.addEventListener("pointerup", function () {
     btnRockets.classList.remove("held");
@@ -214,8 +223,19 @@
     if (e.code === "Space") {
       e.preventDefault();
       gunsHeld = true;
+      if (state.mode === "play") {
+        fireGuns();
+        gunCd = 0.075;
+      }
     }
-    if (e.code === "KeyF" || e.code === "ControlLeft") rocketQueued = true;
+    if (e.code === "KeyF" || e.code === "ControlLeft") {
+      rocketQueued = true;
+      if (state.mode === "play" && rocketCd <= 0) {
+        rocketQueued = false;
+        rocketCd = 0.55;
+        fireRocket();
+      }
+    }
   });
   window.addEventListener("keyup", function (e) {
     keys[e.code] = false;
@@ -249,7 +269,7 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 
   var scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x8ec8dc, 180, 980);
+  scene.fog = new THREE.Fog(0x8ec8dc, 320, 1400);
 
   var camera = new THREE.PerspectiveCamera(68, 1, 0.15, 1400);
   var player = new THREE.Group();
@@ -270,32 +290,32 @@
     var stripeW = 0xf2f2f2;
     var stripeB = 0x1a1a1a;
 
-    var nose = cylMesh(0.55, 0.72, 2.4, 8, 0x2b2b2b);
-    addAt(g, nose, 0, -0.15, -2.3, Math.PI / 2);
+    var nose = cylMesh(0.42, 0.55, 1.8, 8, 0x2b2b2b);
+    addAt(g, nose, 0, -0.55, -2.0, Math.PI / 2);
 
-    var spinner = cylMesh(0.22, 0.38, 0.55, 8, 0xe2b43a);
-    addAt(g, spinner, 0, -0.15, -3.55, Math.PI / 2);
+    var spinner = cylMesh(0.16, 0.28, 0.4, 8, 0xe2b43a);
+    addAt(g, spinner, 0, -0.55, -3.05, Math.PI / 2);
 
-    var prop = boxMesh(0.08, 2.5, 0.18, 0x222222);
-    prop.position.set(0, -0.15, -3.85);
+    var prop = boxMesh(0.06, 1.8, 0.14, 0x222222);
+    prop.position.set(0, -0.55, -3.3);
     g.add(prop);
     g.userData.prop = prop;
 
     function wing(side) {
-      var w = boxMesh(4.6, 0.14, 1.35, silver);
-      w.position.set(side * 3.1, -0.72, -0.9);
+      var w = boxMesh(4.2, 0.12, 1.2, silver);
+      w.position.set(side * 2.9, -1.05, -0.7);
       g.add(w);
-      var s1 = boxMesh(0.42, 0.16, 1.38, stripeW);
-      s1.position.set(side * 2.2, -0.71, -0.9);
+      var s1 = boxMesh(0.38, 0.14, 1.22, stripeW);
+      s1.position.set(side * 2.0, -1.04, -0.7);
       g.add(s1);
-      var s2 = boxMesh(0.42, 0.16, 1.38, stripeB);
-      s2.position.set(side * 2.65, -0.71, -0.9);
+      var s2 = boxMesh(0.38, 0.14, 1.22, stripeB);
+      s2.position.set(side * 2.45, -1.04, -0.7);
       g.add(s2);
-      var s3 = boxMesh(0.42, 0.16, 1.38, stripeW);
-      s3.position.set(side * 3.1, -0.71, -0.9);
+      var s3 = boxMesh(0.38, 0.14, 1.22, stripeW);
+      s3.position.set(side * 2.9, -1.04, -0.7);
       g.add(s3);
-      var gun = cylMesh(0.05, 0.05, 0.9, 6, 0x222222);
-      addAt(g, gun, side * 1.55, -0.62, -1.55, Math.PI / 2);
+      var gun = cylMesh(0.045, 0.045, 0.7, 6, 0x222222);
+      addAt(g, gun, side * 1.35, -0.95, -1.25, Math.PI / 2);
     }
     wing(-1);
     wing(1);
@@ -327,7 +347,7 @@
     var canopy = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), mat(0x223344));
     canopy.position.set(0, 0.32, 0.35);
     g.add(canopy);
-    g.scale.set(1.15, 1.15, 1.15);
+    g.scale.set(2.1, 2.1, 2.1);
     return g;
   }
 
@@ -375,7 +395,7 @@
 
   var ocean = new THREE.Mesh(
     new THREE.PlaneGeometry(3500, 3500),
-    mat(0x1b5d78)
+    mat(0x2e8cb8)
   );
   ocean.rotation.x = -Math.PI / 2;
   world.add(ocean);
@@ -385,7 +405,7 @@
   sand.position.y = 0.15;
   world.add(sand);
 
-  var island = new THREE.Mesh(new THREE.CircleGeometry(268, 40), mat(0x4a7c3e));
+  var island = new THREE.Mesh(new THREE.CircleGeometry(268, 40), mat(0x4f9a40));
   island.rotation.x = -Math.PI / 2;
   island.position.y = 0.35;
   world.add(island);
@@ -400,13 +420,13 @@
   world.add(strip);
 
   var bed = boxMesh(5.4, 0.35, 430, 0x3a2a18);
-  bed.position.set(78, 0.55, 10);
+  bed.position.set(42, 0.55, 10);
   world.add(bed);
   var railL = boxMesh(0.18, 0.12, 430, 0x8a8e94);
-  railL.position.set(76.4, 0.78, 10);
+  railL.position.set(40.4, 0.78, 10);
   world.add(railL);
   var railR = boxMesh(0.18, 0.12, 430, 0x8a8e94);
-  railR.position.set(79.6, 0.78, 10);
+  railR.position.set(43.6, 0.78, 10);
   world.add(railR);
 
   var i;
@@ -423,7 +443,7 @@
     addAt(tree, new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 6), mat(0x2f5c2a)), 0, 3.0, 0);
     var tx = rand(-200, 200);
     var tz = rand(-180, 180);
-    if (Math.abs(tx - 78) < 18) tx += 30;
+    if (Math.abs(tx - 42) < 18) tx += 30;
     if (Math.abs(tx + 30) < 20 && Math.abs(tz + 20) < 80) tx += 40;
     tree.position.set(tx, 0.35, tz);
     world.add(tree);
@@ -482,42 +502,44 @@
     var trainZ = -90;
     carKinds.forEach(function (kind, idx) {
       var car = makeTrainCar(kind);
-      var z = trainZ - idx * 6.2;
-      car.position.set(78, 0.9, z);
+      car.scale.set(1.7, 1.7, 1.7);
+      var z = trainZ - idx * 10.4;
+      car.position.set(42, 1.4, z);
       car.rotation.y = Math.PI;
-      var t = addTarget(car, "rail", kind === "loco" ? 70 : 45, kind === "loco" ? 3.6 : 2.8, kind === "loco" ? 150 : 80);
+      var t = addTarget(car, "rail", kind === "loco" ? 70 : 45, kind === "loco" ? 5.2 : 4.2, kind === "loco" ? 150 : 80);
       t.extra = { railIndex: idx, baseZ: z };
     });
 
     var boatSpots = [
-      { x: -130, z: 40, kind: "patrol" },
-      { x: -150, z: -30, kind: "cargo" },
-      { x: -110, z: 110, kind: "patrol" },
-      { x: -170, z: 80, kind: "cargo" }
+      { x: -55, z: 20, kind: "patrol" },
+      { x: -80, z: -25, kind: "cargo" },
+      { x: -48, z: 70, kind: "patrol" },
+      { x: -95, z: 50, kind: "cargo" }
     ];
     boatSpots.forEach(function (s) {
       var b = makeBoat(s.kind);
-      b.position.set(s.x, 0.7, s.z);
-      var t = addTarget(b, "boat", s.kind === "cargo" ? 80 : 55, 4.2, 120);
+      b.scale.set(1.8, 1.8, 1.8);
+      b.position.set(s.x, 1.1, s.z);
+      var t = addTarget(b, "boat", s.kind === "cargo" ? 80 : 55, 6.5, 120);
       t.extra = { phase: rand(0, Math.PI * 2), x: s.x, z: s.z, kind: s.kind };
     });
 
     var planeSpawns = [
-      { x: 40, y: 55, z: 90 },
-      { x: -20, y: 48, z: 160 },
-      { x: 90, y: 70, z: 40 },
-      { x: -60, y: 62, z: -40 },
-      { x: 20, y: 42, z: 210 },
-      { x: 110, y: 58, z: 130 }
+      { x: 6, y: 34, z: -40 },
+      { x: -18, y: 40, z: 30 },
+      { x: 55, y: 36, z: 20 },
+      { x: 20, y: 48, z: 90 },
+      { x: -40, y: 42, z: 70 },
+      { x: 90, y: 50, z: 50 }
     ];
     planeSpawns.forEach(function (s, idx) {
       var p = makeEnemyFighter();
       p.position.set(s.x, s.y, s.z);
-      var t = addTarget(p, "plane", 35, 3.4, 200);
+      var t = addTarget(p, "plane", 35, 7.2, 200);
       t.extra = {
         heading: rand(0, Math.PI * 2),
         climb: 0,
-        orbit: 70 + idx * 12,
+        orbit: 36 + idx * 10,
         origin: new THREE.Vector3(s.x, s.y, s.z),
         fireCd: rand(1, 3)
       };
@@ -528,10 +550,10 @@
   var gunCd = 0;
   var rocketCd = 0;
   var gunToggle = 0;
-  var tracerGeo = new THREE.BoxGeometry(0.07, 0.07, 9);
-  var tracerMat = new THREE.MeshBasicMaterial({ color: 0xffe27a });
-  var rocketGeo = new THREE.CylinderGeometry(0.12, 0.18, 1.4, 6);
-  var rocketMat = new THREE.MeshLambertMaterial({ color: 0xc8b48a, emissive: 0x331800 });
+  var tracerGeo = new THREE.BoxGeometry(0.16, 0.16, 22);
+  var tracerMat = new THREE.MeshBasicMaterial({ color: 0xfff2a1 });
+  var rocketGeo = new THREE.CylinderGeometry(0.22, 0.32, 2.4, 6);
+  var rocketMat = new THREE.MeshLambertMaterial({ color: 0xe8c07a, emissive: 0x662200 });
 
   function playerForward() {
     camera.getWorldDirection(tmpV);
@@ -613,15 +635,15 @@
     var right = new THREE.Vector3();
     right.crossVectors(dir, up).normalize();
     var muzzle = origin.clone()
-      .addScaledVector(right, gunToggle ? 1.4 : -1.4)
-      .addScaledVector(dir, 4)
-      .add(new THREE.Vector3(0, -0.5, 0));
+      .addScaledVector(right, gunToggle ? 1.1 : -1.1)
+      .addScaledVector(dir, 3.2)
+      .add(new THREE.Vector3(0, -0.35, 0));
 
     var tracer = new THREE.Mesh(tracerGeo, tracerMat);
-    tracer.position.copy(muzzle).addScaledVector(dir, 5);
+    tracer.position.copy(muzzle).addScaledVector(dir, 14);
     tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     scene.add(tracer);
-    tracers.push({ mesh: tracer, life: 0.09 });
+    tracers.push({ mesh: tracer, life: 0.22, dir: dir.clone(), speed: 420 });
 
     var hit = hitScan(muzzle, dir, 420);
     if (hit) damageTarget(hit.target, 8, hit.point);
@@ -638,8 +660,8 @@
     scene.add(mesh);
     rockets.push({
       mesh: mesh,
-      vel: dir.multiplyScalar(120),
-      life: 3.2
+      vel: dir.multiplyScalar(78),
+      life: 4.2
     });
     beep(180, 0.12, "sawtooth", 0.1);
     noiseBurst(0.1, 0.1);
@@ -701,15 +723,15 @@
   };
 
   function resetFlight() {
-    state.heading = 0;
-    state.pitch = 0.05;
+    state.heading = Math.PI;
+    state.pitch = 0.02;
     state.roll = 0;
     state.speed = 48;
     state.hp = 100;
     state.score = 0;
     state.time = 0;
-    player.position.set(-20, 42, -230);
-    player.rotation.set(0, 0, 0);
+    player.position.set(8, 30, -130);
+    player.rotation.set(0.02, Math.PI, 0);
     camera.position.set(0, 0.62, 0.18);
     rockets.forEach(function (r) { scene.remove(r.mesh); });
     tracers.forEach(function (t) { scene.remove(t.mesh); });
@@ -905,6 +927,9 @@
     var k;
     for (k = tracers.length - 1; k >= 0; k--) {
       tracers[k].life -= dt;
+      if (tracers[k].dir) {
+        tracers[k].mesh.position.addScaledVector(tracers[k].dir, tracers[k].speed * dt);
+      }
       if (tracers[k].life <= 0) {
         scene.remove(tracers[k].mesh);
         tracers.splice(k, 1);
@@ -987,7 +1012,10 @@
   resize();
 
   spawnWorldTargets();
-  player.position.set(-20, 42, -230);
+  player.position.set(8, 30, -130);
+  player.rotation.order = "YXZ";
+  player.rotation.set(0.02, Math.PI, 0);
+  state.heading = Math.PI;
 
   function tick() {
     var dt = Math.min(0.045, clock.getDelta());
@@ -999,7 +1027,7 @@
       updateProjectiles(dt);
       updateHud();
     } else {
-      player.rotation.y += dt * 0.08;
+      player.position.y = 30 + Math.sin(state.time) * 1.2;
       if (cockpit.userData.prop) cockpit.userData.prop.rotation.z += dt * 18;
       updateGround(dt);
       updateEnemies(dt);
