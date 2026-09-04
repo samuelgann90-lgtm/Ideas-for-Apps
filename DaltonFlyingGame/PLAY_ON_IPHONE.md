@@ -1,8 +1,10 @@
 # How to get Dalton Flyer on the iPhone
 
-You cannot open Xcode from a GitHub link. GitHub is only a website. Xcode is an app on a **Mac**.
+**Your iPhone will never appear in GitHub.** GitHub is only a website that stores the code. It has no list of phones.
 
-Pick **one** path below.
+The phone shows up in **Xcode on a Mac**, after you plug it in with a cable. Look at the **top middle of the Xcode window**, not on github.com.
+
+You cannot open Xcode from a GitHub link. Pick **one** path below.
 
 ---
 

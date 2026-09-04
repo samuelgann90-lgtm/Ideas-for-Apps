@@ -2,7 +2,7 @@
 
 WW2 first-person P-51 Mustang combat for iPhone. Shoot enemy planes, rail cars, and boats with big **GUNS** and **ROCKETS** buttons.
 
-**GitHub will not open Xcode.** A link in the browser is not the app. Follow **[PLAY_ON_IPHONE.md](./PLAY_ON_IPHONE.md)** — download the zip, then double-click `Open in Xcode.command`, **or** AirDrop `DaltonFlyer.html` to the iPhone.
+**Your iPhone will never show up in GitHub.** GitHub is a website; the phone appears in **Xcode on a Mac** after you plug it in. Follow **[PLAY_ON_IPHONE.md](./PLAY_ON_IPHONE.md)**.
 
 Download on a Mac: https://github.com/samuelgann90-lgtm/Ideas-for-Apps/archive/refs/heads/cursor/dalton-flying-game-2645.zip
 
