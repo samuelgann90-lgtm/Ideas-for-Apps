@@ -528,12 +528,12 @@
     });
 
     var planeSpawns = [
-      { x: 6, y: 34, z: -40 },
-      { x: -18, y: 40, z: 30 },
-      { x: 55, y: 36, z: 20 },
-      { x: 20, y: 48, z: 90 },
-      { x: -40, y: 42, z: 70 },
-      { x: 90, y: 50, z: 50 }
+      { x: 8, y: 31, z: -55 },
+      { x: -12, y: 36, z: 10 },
+      { x: 40, y: 34, z: 5 },
+      { x: 18, y: 44, z: 70 },
+      { x: -28, y: 40, z: 50 },
+      { x: 70, y: 48, z: 40 }
     ];
     planeSpawns.forEach(function (s, idx) {
       var p = makeEnemyFighter();
@@ -542,7 +542,7 @@
       t.extra = {
         heading: rand(0, Math.PI * 2),
         climb: 0,
-        orbit: 36 + idx * 10,
+        orbit: idx === 0 ? 3 : 28 + idx * 8,
         origin: new THREE.Vector3(s.x, s.y, s.z),
         fireCd: rand(1, 3)
       };
@@ -553,10 +553,18 @@
   var gunCd = 0;
   var rocketCd = 0;
   var gunToggle = 0;
-  var tracerGeo = new THREE.BoxGeometry(0.16, 0.16, 22);
-  var tracerMat = new THREE.MeshBasicMaterial({ color: 0xfff2a1 });
-  var rocketGeo = new THREE.CylinderGeometry(0.22, 0.32, 2.4, 6);
-  var rocketMat = new THREE.MeshLambertMaterial({ color: 0xe8c07a, emissive: 0x662200 });
+  var tracerGeo = new THREE.BoxGeometry(0.45, 0.45, 36);
+  var tracerMat = new THREE.MeshBasicMaterial({ color: 0xfff6b0 });
+  var rocketGeo = new THREE.CylinderGeometry(0.45, 0.7, 3.6, 6);
+  var rocketMat = new THREE.MeshBasicMaterial({ color: 0xff9a32 });
+  var beamMat = new THREE.MeshBasicMaterial({ color: 0xfff4a8, transparent: true, opacity: 0.9 });
+  var beamGeo = new THREE.BoxGeometry(0.22, 0.22, 80);
+  var gunBeams = [0, 1].map(function () {
+    var mesh = new THREE.Mesh(beamGeo, beamMat);
+    mesh.visible = false;
+    scene.add(mesh);
+    return mesh;
+  });
 
   function playerForward() {
     camera.getWorldDirection(tmpV);
@@ -570,7 +578,7 @@
 
   function assistAim(dir) {
     var best = null;
-    var bestDot = 0.975;
+    var bestDot = 0.9;
     var origin = playerPos().clone();
     targets.forEach(function (t) {
       if (!t.alive) return;
@@ -581,7 +589,7 @@
         best = to;
       }
     });
-    if (best) dir.lerp(best, 0.45).normalize();
+    if (best) dir.lerp(best, 0.72).normalize();
     return dir;
   }
 
@@ -643,10 +651,10 @@
       .add(new THREE.Vector3(0, -0.35, 0));
 
     var tracer = new THREE.Mesh(tracerGeo, tracerMat);
-    tracer.position.copy(muzzle).addScaledVector(dir, 14);
+    tracer.position.copy(muzzle).addScaledVector(dir, 22);
     tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     scene.add(tracer);
-    tracers.push({ mesh: tracer, life: 0.22, dir: dir.clone(), speed: 420 });
+    tracers.push({ mesh: tracer, life: 0.55, dir: dir.clone(), speed: 160 });
 
     var hit = hitScan(muzzle, dir, 420);
     if (hit) damageTarget(hit.target, 8, hit.point);
@@ -663,8 +671,8 @@
     scene.add(mesh);
     rockets.push({
       mesh: mesh,
-      vel: dir.multiplyScalar(78),
-      life: 4.2
+      vel: dir.multiplyScalar(52),
+      life: 5.5
     });
     beep(180, 0.12, "sawtooth", 0.1);
     noiseBurst(0.1, 0.1);
@@ -727,14 +735,14 @@
 
   function resetFlight() {
     state.heading = Math.PI;
-    state.pitch = 0.02;
+    state.pitch = 0;
     state.roll = 0;
     state.speed = 48;
     state.hp = 100;
     state.score = 0;
     state.time = 0;
     player.position.set(8, 30, -130);
-    player.rotation.set(0.02, Math.PI, 0);
+    player.rotation.set(0, Math.PI, 0);
     camera.position.set(0, 0.62, 0.18);
     rockets.forEach(function (r) { scene.remove(r.mesh); });
     tracers.forEach(function (t) { scene.remove(t.mesh); });
@@ -920,6 +928,24 @@
   function updateProjectiles(dt) {
     gunCd -= dt;
     rocketCd -= dt;
+    if (state.mode === "play" && gunsHeld) {
+      var originB = playerPos().clone();
+      var dirB = playerForward().clone();
+      var rightB = new THREE.Vector3().crossVectors(dirB, up).normalize();
+      [ -1, 1 ].forEach(function (side, idx) {
+        var a = originB.clone()
+          .addScaledVector(rightB, side * 1.05)
+          .add(new THREE.Vector3(0, -0.35, 0))
+          .addScaledVector(dirB, 2.2);
+        gunBeams[idx].position.copy(a).addScaledVector(dirB, 40);
+        gunBeams[idx].quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirB);
+        gunBeams[idx].visible = true;
+      });
+    } else {
+      gunBeams[0].visible = false;
+      gunBeams[1].visible = false;
+    }
+
     if (state.mode === "play" && gunsHeld && gunCd <= 0) {
       gunCd = 0.075;
       fireGuns();
@@ -1022,7 +1048,7 @@
   spawnWorldTargets();
   player.position.set(8, 30, -130);
   player.rotation.order = "YXZ";
-  player.rotation.set(0.02, Math.PI, 0);
+  player.rotation.set(0, Math.PI, 0);
   state.heading = Math.PI;
 
   function tick() {
