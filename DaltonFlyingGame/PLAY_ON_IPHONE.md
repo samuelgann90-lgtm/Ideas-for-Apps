@@ -62,6 +62,20 @@ You can also open it by going to `DaltonFlyingGame/ios/` and double-clicking **`
 
 Then open **Dalton Flyer** on the home screen. Turn the phone **sideways**. Tap **START MISSION**.
 
+### Phone not showing in Xcode
+
+Do these in order. Stay in **Xcode**, not GitHub.
+
+1. Unlock the iPhone. Leave it on the home screen (not a passcode lock).
+2. Use a **data** cable (the one that came with the phone). Charge-only cables will not show the phone.
+3. Plug straight into the Mac, not through a hub if you can avoid it.
+4. On the iPhone, if you see **Trust This Computer?** tap **Trust** and enter the passcode.
+5. On the iPhone: **Settings → Privacy & Security → Developer Mode** → turn **On**, then restart the phone if it asks. (This is required on iOS 16 and later.)
+6. In Xcode, click **Window → Devices and Simulators**. Wait until your iPhone name appears on the left. The first time, Xcode may sit on “Preparing device” for a few minutes.
+7. Back in the main Xcode window, click the name next to the Play button (top left/middle). It might say **iPhone 16** or **Any iOS Device**. Pick **your iPhone** from that list — not a Simulator.
+
+If it still does not appear, unplug, unlock the phone, plug back in, and wait on the Devices window. You can still play without this: AirDrop **`DaltonFlyer.html`** to the iPhone and open it in Safari.
+
 ---
 
 ## Path B — no Xcode: AirDrop one file to the iPhone
