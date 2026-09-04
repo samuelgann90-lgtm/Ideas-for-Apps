@@ -1,44 +1,25 @@
 # Dalton Flyer
 
-WW2 first-person air combat for iPhone. You fly a **P-51 Mustang** with a gunsight view, easy on-screen **GUNS** and **ROCKETS** buttons, and three kinds of targets:
+WW2 first-person P-51 Mustang combat for iPhone. Shoot enemy planes, rail cars, and boats with big **GUNS** and **ROCKETS** buttons.
 
-- Enemy fighter planes
-- Rail cars on a coastal line
-- Boats in the harbor
+**GitHub will not open Xcode.** A link in the browser is not the app. Follow **[PLAY_ON_IPHONE.md](./PLAY_ON_IPHONE.md)** — download the zip, then double-click `Open in Xcode.command`, **or** AirDrop `DaltonFlyer.html` to the iPhone.
 
-The P-51 is a piston fighter (not a jet) — this mission is set on the 1944 Western Front with a Red Tail Mustang.
+Download on a Mac: https://github.com/samuelgann90-lgtm/Ideas-for-Apps/archive/refs/heads/cursor/dalton-flying-game-2645.zip
 
-## Play on iPhone (two ways)
+## Controls
 
-### 1. Native app (Xcode)
+- **STEER** (left pad) — push up to climb
+- **GUNS** — hold to fire .50 cal
+- **ROCKETS** — tap for trains and ships
 
-1. On a Mac, open `ios/DaltonFlyer.xcodeproj` in Xcode.
-2. Select the **DaltonFlyer** target → **Signing & Capabilities** → choose your Apple ID / Team.
-3. Plug in the iPhone, pick it as the run destination, press **Run**.
-4. Rotate the phone to **landscape**. Drag the left **STEER** pad to fly. Hold **GUNS** to shoot. Tap **ROCKETS** for trains and ships.
+On a computer keyboard: WASD, space, F.
 
-iOS 17+, portrait is playable but landscape is intended.
-
-### 2. Safari / Home Screen
-
-The game is a full-screen web app in `web/`.
-
-1. Host the `web` folder (AirDrop the folder, GitHub Pages, or a local server).
-2. Open `index.html` in Safari on the iPhone.
-3. Share → **Add to Home Screen** for an app icon.
-
-Keyboard on a computer: **WASD / arrows** steer, **space** guns, **F** rockets.
-
-## Mission
-
-Destroy every bandit, rail car, and boat. Machine guns work on all targets. Rockets hit much harder against trains and ships. A light aim-assist pulls shots toward anything near the gunsight so the buttons stay easy.
-
-## Project layout
+## Files
 
 | Path | Purpose |
 |------|---------|
-| `web/` | The 3D game (Three.js, runs in Safari and in the iOS app) |
-| `ios/DaltonFlyer.xcodeproj` | Xcode wrapper that loads the game full-screen |
-| `ios/DaltonFlyer/` | SwiftUI + WKWebView shell |
-
-No extra SDKs or API keys. The 3D engine is vendored in `web/js/three.min.js` (MIT).
+| `PLAY_ON_IPHONE.md` | Step-by-step for putting it on the phone |
+| `Open in Xcode.command` | Double-click on a Mac to open the Xcode project |
+| `DaltonFlyer.html` | One file you can AirDrop to the iPhone |
+| `ios/DaltonFlyer.xcodeproj` | The real iPhone app |
+| `web/` | The 3D game used inside that app |
