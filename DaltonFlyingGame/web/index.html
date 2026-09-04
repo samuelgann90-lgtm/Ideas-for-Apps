@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dalton Flyer" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1c2a18" />
+  <title>Dalton Flyer — P-51 Mustang</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="view"></canvas>
+
+    <div id="canopy" aria-hidden="true">
+      <div class="frame top"></div>
+      <div class="frame left"></div>
+      <div class="frame right"></div>
+      <div class="frame bottom"></div>
+    </div>
+
+    <div id="sight">
+      <div class="ring"></div>
+      <div class="cross h"></div>
+      <div class="cross v"></div>
+      <div class="dot"></div>
+    </div>
+
+    <div id="hud">
+      <div id="topbar">
+        <div class="plaque">
+          <span class="label">DALTON FLYER</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="plaque">
+          <span class="label">ALT</span>
+          <span class="value" id="alt">0</span>
+        </div>
+        <div class="plaque">
+          <span class="label">SPD</span>
+          <span class="value" id="spd">0</span>
+        </div>
+        <div class="plaque hp">
+          <span class="label">ARMOR</span>
+          <div class="bar"><i id="hp-bar"></i></div>
+        </div>
+      </div>
+
+      <div id="objective">
+        <span>PLANES <b id="c-planes">0</b></span>
+        <span>RAIL <b id="c-rail">0</b></span>
+        <span>BOATS <b id="c-boats">0</b></span>
+      </div>
+
+      <div id="toast"></div>
+      <div id="hitmark"></div>
+      <div id="damage-flash"></div>
+    </div>
+
+    <div id="stick-pad">
+      <div id="stick-base">
+        <div id="stick-knob"></div>
+      </div>
+      <div class="ctrl-label">STEER · UP CLIMBS</div>
+    </div>
+
+    <div id="weapons">
+      <button type="button" id="btn-guns" class="weapon guns">
+        GUNS
+        <small>.50 CAL</small>
+      </button>
+      <button type="button" id="btn-rockets" class="weapon rockets">
+        ROCKETS
+        <small>GROUND</small>
+      </button>
+    </div>
+
+    <div id="overlay" class="show">
+      <div class="panel">
+        <p class="theater">1944 · WESTERN FRONT</p>
+        <h1>DALTON FLYER</h1>
+        <h2>P-51 MUSTANG</h2>
+        <p class="blurb">First-person WW2 fighter combat. Fly the Red Tail Mustang and knock out enemy planes, rail cars, and boats.</p>
+        <ul class="how">
+          <li><b>STEER</b> — drag the left pad; push up to climb (or WASD / arrows)</li>
+          <li><b>GUNS</b> — hold to fire machine guns at anything</li>
+          <li><b>ROCKETS</b> — tap to smash trains and ships</li>
+        </ul>
+        <button type="button" id="btn-start" class="start">START MISSION</button>
+        <p class="hint">Landscape works best on iPhone</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/three.min.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
