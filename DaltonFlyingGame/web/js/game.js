@@ -457,7 +457,10 @@
   }
 
   for (i = 0; i < 16; i++) {
-    var cloud = new THREE.Mesh(new THREE.SphereGeometry(rand(12, 22), 8, 6), mat(0xf4f7fa));
+    var cloud = new THREE.Mesh(
+      new THREE.SphereGeometry(rand(12, 22), 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xf4f7fa })
+    );
     cloud.scale.set(rand(1.4, 2.4), 0.45, rand(1, 1.6));
     cloud.position.set(rand(-500, 500), rand(70, 140), rand(-500, 500));
     cloud.userData.drift = rand(1.5, 4);
@@ -820,11 +823,16 @@
     var ix = stick.x;
     var iy = stick.y;
 
-    if (Math.abs(ix) < 0.06) state.roll *= Math.exp(-3 * dt);
+    if (Math.abs(ix) < 0.06) state.roll *= Math.exp(-3.4 * dt);
     else state.roll = clamp(state.roll + ix * 2.3 * dt, -0.85, 0.85);
 
-    if (Math.abs(iy) < 0.06) state.pitch *= Math.exp(-2.2 * dt);
-    else state.pitch = clamp(state.pitch - iy * 1.5 * dt, -0.62, 0.55);
+    // Stick up / W climbs. Camera looks down -Z, so negative rotation.x is nose-up.
+    if (Math.abs(iy) < 0.08) {
+      state.pitch *= Math.exp(-5.5 * dt);
+      if (Math.abs(state.pitch) < 0.03) state.pitch = 0;
+    } else {
+      state.pitch = clamp(state.pitch + iy * 1.45 * dt, -0.55, 0.6);
+    }
 
     state.heading -= state.roll * 1.15 * dt;
     state.speed = clamp(state.speed + (-iy) * 18 * dt, 32, 72);
